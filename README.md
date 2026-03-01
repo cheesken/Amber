@@ -22,7 +22,6 @@ Monorepo for the AMBER hackathon project.
 git clone <repo-url>
 cd Amber
 npm install
-cp .env.example .env # Update with your keys
 ```
 
 ### 2. Backend Setup
