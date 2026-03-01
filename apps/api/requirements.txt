@@ -11,3 +11,4 @@ langgraph==0.2.60
 langchain-groq==0.2.1
 langchain-core==0.3.28
 httpx>=0.24,<0.28
+python-multipart==0.0.22
