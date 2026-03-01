@@ -4,73 +4,77 @@ Monorepo for the AMBER hackathon project.
 
 ## Stack (source of truth: `PROJECT_REFERENCE.md`)
 
-- **Mobile**: React Native (Expo, TypeScript)
-- **Backend**: FastAPI (Python)
-- **Database**: Supabase Postgres
-- **Blob storage**: Supabase Storage
-- **Agent orchestration**: LangGraph + GPT-4o
-- **Media analysis**: Reka AI
-- **PDF generation**: reportlab
-- **Voice agent**: ElevenLabs
-- **SMS**: Twilio
+- **Mobile**: React Native (Expo SDK 54, TypeScript)
+- **Backend**: FastAPI (Python 3.11)
+- **Database**: Supabase
+- **Orchestration**: LangGraph + GPT-4o
 
-## Tooling (standardized)
+## Prerequisites
 
-- **Node**: `20` (see `.nvmrc`)
-- **Python**: `3.11` (see `.python-version`)
-- **Package manager**: `npm`
+- **Node**: `20.x` (see `.nvmrc`)
+- **Python**: `3.11.x` (see `.python-version`)
+- **Mobile Preview**: Install the **Expo Go** app on your phone.
 
 ## Quickstart
 
-1. Copy env
-
+### 1. Initial Setup
 ```bash
-cp .env.example .env
-```
-
-2. Install JS tooling
-
-```bash
+git clone <repo-url>
+cd Amber
 npm install
 ```
 
-3. Install API deps
-
+### 2. Backend Setup
+We use a Python virtual environment for the API.
 ```bash
+# Create and activate venv
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
 npm run api:install
-```
 
-4. Run API
-
-```bash
+# Start the API
 npm run api:dev
 ```
+Verify the backend is running at [http://localhost:8000/health](http://localhost:8000/health).
 
-5. Create mobile app (first time only)
-
+### 3. Mobile Setup
+Open a **new terminal tab** and navigate to the mobile app:
 ```bash
-npm run mobile:init
+cd apps/mobile
+npm install
 ```
 
-## Common commands
+## Running the App
 
-- **Format**
-
+### Option A: Phone Preview (Recommended)
+This uses a tunnel to ensure your phone can connect to your Mac regardless of Wi-Fi/Firewall settings.
 ```bash
-npm run fmt
+npx expo start --tunnel
+```
+Scan the QR code with your **Phone Camera** (iOS) or **Expo Go App** (Android).
+
+### Option B: iOS Simulator
+*Requires Xcode installed.*
+```bash
+npx expo start --ios
 ```
 
-- **Lint (format check)**
-
+### Option C: Android Emulator
+*Requires Android Studio / ADB set up.*
 ```bash
-npm run lint
+npx expo start --android
 ```
 
-- **API health check**
+## Common Commands
 
-After `pnpm api:dev`, visit:
+- **Format Code**: `npm run fmt`
+- **Lint Check**: `npm run lint`
 
-After `npm run api:dev`, visit:
+## Troubleshooting
 
-- `http://localhost:8000/health`
+- **"Opening project..." hang**: Always use `npx expo start --tunnel` if you are on a public/corporate Wi-Fi.
+- **Python not found**: Ensure you are using `python3` and that your `venv` is activated.
+- **Expo Go version error**: This project is pinned to SDK 54 for maximum compatibility. If Expo Go suggests an update, ensure you are running the `npx expo start --tunnel` command.
 
