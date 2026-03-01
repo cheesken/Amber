@@ -6,6 +6,7 @@ import { NavBar, TabId } from '../components/NavBar';
 import { ProfileScreen } from './ProfileScreen';
 import { CheckInScreen } from './CheckInScreen';
 import { AgentScreen } from './AgentScreen';
+import { Header } from '../components/Header';
 
 interface VaultScreenProps {
     onQuickExit: () => void;
@@ -55,21 +56,21 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
     const renderTabContent = () => {
         if (activeTab === 'profile') {
             return (
-                <View style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 25 : 45 }]}>
+                <View style={styles.tabContentWrapper}>
                     <ProfileScreen />
                 </View>
             );
         }
         if (activeTab === 'checkin') {
             return (
-                <View style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 25 : 45 }]}>
+                <View style={styles.tabContentWrapper}>
                     <CheckInScreen />
                 </View>
             );
         }
         if (activeTab === 'agent') {
             return (
-                <View style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 25 : 45 }]}>
+                <View style={styles.tabContentWrapper}>
                     <AgentScreen />
                 </View>
             );
@@ -82,7 +83,7 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
 
         // currentView === 'evidence'
         return (
-            <View style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 25 : 45 }]}>
+            <View style={styles.tabContentWrapper}>
                 <View style={styles.container}>
                     <View style={styles.header}>
                         <Text style={styles.title}>My Vault</Text>
@@ -110,7 +111,8 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+        <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+            <Header onQuickExit={onQuickExit} />
             {renderTabContent()}
             <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
         </View>
@@ -120,8 +122,11 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FFF',
-        paddingTop: Platform.OS === 'android' ? 25 : 0,
+        backgroundColor: '#FAFAFA',
+    },
+    tabContentWrapper: {
+        flex: 1,
+        backgroundColor: '#FAFAFA',
     },
     container: {
         flex: 1,

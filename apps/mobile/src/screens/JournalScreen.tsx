@@ -253,7 +253,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
     );
 
     return (
-        <View style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 25 : 45 }]}>
+        <View style={styles.safeArea}>
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
