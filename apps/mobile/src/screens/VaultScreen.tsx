@@ -9,7 +9,7 @@ interface VaultScreenProps {
 export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
     return (
         <View style={styles.container}>
-            <MainRouter />
+            <MainRouter onQuickExit={onQuickExit} />
         </View>
     );
 };

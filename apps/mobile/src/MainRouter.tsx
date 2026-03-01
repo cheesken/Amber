@@ -7,16 +7,27 @@ import TextEvidenceScreen from './screens/evidence/TextEvidenceScreen';
 import ImageEvidenceScreen from './screens/evidence/ImageEvidenceScreen';
 import VideoEvidenceScreen from './screens/evidence/VideoEvidenceScreen';
 import AudioEvidenceScreen from './screens/evidence/AudioEvidenceScreen';
-import BottomNav from './components/BottomNav';
+import { NavBar, TabId } from './components/NavBar';
+import { Header } from './components/Header';
+import { CheckInScreen } from './screens/CheckInScreen';
+import { AgentScreen } from './screens/AgentScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
 
-type Tab = 'Journal' | 'Check-in' | 'Agent' | 'Profile';
 type Screen = 'Home' | 'ViewEvidence' | 'Text' | 'Image' | 'Video' | 'Audio';
 
-export default function MainRouter() {
-    const [activeTab, setActiveTab] = useState<Tab>('Journal');
+interface MainRouterProps {
+    onQuickExit?: () => void;
+}
+
+export default function MainRouter({ onQuickExit }: MainRouterProps) {
+    const [activeTab, setActiveTab] = useState<TabId>('journal');
     const [activeScreen, setActiveScreen] = useState<Screen>('Home');
 
     const renderScreen = () => {
+        if (activeTab === 'checkin') return <CheckInScreen />;
+        if (activeTab === 'agent') return <AgentScreen />;
+        if (activeTab === 'profile') return <ProfileScreen />;
+
         switch (activeScreen) {
             case 'Home':
                 return <JournalScreen onViewEvidence={() => setActiveScreen('ViewEvidence')} />;
@@ -24,7 +35,7 @@ export default function MainRouter() {
                 return (
                     <ViewEvidenceScreen
                         onBack={() => setActiveScreen('Home')}
-                        onSelectCategory={(category) => setActiveScreen(category)}
+                        onSelectCategory={(category) => setActiveScreen(category as Screen)}
                     />
                 );
             case 'Text':
@@ -42,8 +53,11 @@ export default function MainRouter() {
 
     return (
         <View style={styles.container}>
-            {renderScreen()}
-            <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+            <Header onQuickExit={onQuickExit} />
+            <View style={styles.content}>
+                {renderScreen()}
+            </View>
+            <NavBar activeTab={activeTab} onTabPress={setActiveTab} />
             <StatusBar style="auto" />
         </View>
     );
@@ -54,4 +68,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FAFAFA',
     },
+    content: {
+        flex: 1,
+    }
 });

@@ -228,18 +228,6 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.profileSection}>
-                        <View style={styles.avatarPlaceholder} />
-                        <Text style={styles.brandName}>SafeSpace</Text>
-                    </View>
-                    <TouchableOpacity style={styles.quickExitButton}>
-                        <Ionicons name="log-out-outline" size={16} color="#E53935" />
-                        <Text style={styles.quickExitText}>QUICK EXIT</Text>
-                    </TouchableOpacity>
-                </View>
-
                 {/* Title & Save */}
                 <View style={styles.titleRow}>
                     <Text style={styles.pageTitle}>New Journal Entry</Text>
@@ -256,7 +244,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                 </View>
 
                 {/* Tabs */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer} contentContainerStyle={styles.tabsContent}>
+                <View style={styles.tabsContainer}>
                     {(['Text', 'Photo', 'Video', 'Audio'] as TabType[]).map((tab) => {
                         const isActive = activeTab === tab;
                         let iconName: keyof typeof Ionicons.glyphMap = 'text-outline';
@@ -278,7 +266,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                             </TouchableOpacity>
                         );
                     })}
-                </ScrollView>
+                </View>
 
                 {/* Main Content Area */}
                 <View style={styles.contentArea}>
@@ -296,45 +284,6 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
-    },
-    profileSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    avatarPlaceholder: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#D1C4E9',
-        marginRight: 10,
-    },
-    brandName: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#3E2723',
-    },
-    quickExitButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFEBEE',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-    },
-    quickExitText: {
-        color: '#E53935',
-        fontWeight: 'bold',
-        fontSize: 12,
-        marginLeft: 4,
     },
     titleRow: {
         flexDirection: 'row',
@@ -388,22 +337,20 @@ const styles = StyleSheet.create({
         marginLeft: 6,
     },
     tabsContainer: {
-        maxHeight: 50,
-        marginBottom: 20,
-    },
-    tabsContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         paddingHorizontal: 20,
-        alignItems: 'center',
+        marginBottom: 20,
+        width: '100%',
     },
     tabButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         paddingVertical: 10,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        marginRight: 10,
         backgroundColor: '#FFF',
     },
     activeTabButton: {
@@ -413,8 +360,8 @@ const styles = StyleSheet.create({
     tabText: {
         color: '#666',
         fontWeight: '600',
-        marginLeft: 6,
-        fontSize: 14,
+        marginLeft: 4,
+        fontSize: 12,
     },
     activeTabText: {
         color: '#FFF',
