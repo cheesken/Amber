@@ -1,0 +1,13 @@
+node_modules
+.pnpm-store
+.venv
+venv
+__pycache__
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/.expo
+*.lock
+
+# Supabase
+supabase/.branches
+supabase/.temp
