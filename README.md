@@ -57,6 +57,31 @@
 </table>
 
 ---
+
+## Reports
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="pics/report1.png" width="220"/><br/>
+      <strong>Evidence Report</strong><br/>
+      Summary + incident timeline (auto-generated)
+    </td>
+    <td align="center" width="33%">
+      <img src="pics/report2.png" width="220"/><br/>
+      <strong>Gap Analysis</strong><br/>
+      What you have vs what courts typically consider
+    </td>
+    <td align="center" width="33%">
+      <img src="pics/report3.png" width="220"/><br/>
+      <strong>Legal Disclaimer</strong><br/>
+      Included in every PDF
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Stack
 
 - **Mobile**: React Native (Expo SDK 54, TypeScript)
