@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { NavBar, TabId } from '../components/NavBar';
 import { Header } from '../components/Header';
 import { CheckInScreen } from './CheckInScreen';
+import { AgentScreen } from './AgentScreen';
 
 const ScreenPlaceholder: React.FC<{ title: string; color: string }> = ({ title, color }) => (
     <View style={[styles.placeholder, { backgroundColor: color }]}>
@@ -24,7 +25,7 @@ export const VaultScreen: React.FC<VaultScreenProps> = ({ onQuickExit }) => {
             case 'checkin':
                 return <CheckInScreen />;
             case 'agent':
-                return <ScreenPlaceholder title="Agent Section" color="#f8f9fa" />;
+                return <AgentScreen />;
             case 'profile':
                 return <ScreenPlaceholder title="Profile Section" color="#f8f9fa" />;
             default:

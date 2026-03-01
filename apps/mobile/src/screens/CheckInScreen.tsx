@@ -129,13 +129,15 @@ export const CheckInScreen: React.FC = () => {
                         <View style={styles.section}>
                             <View style={styles.sectionHeader}>
                                 <Text style={styles.sectionTitle}>Trusted Contacts</Text>
-                                <TouchableOpacity
-                                    style={styles.addContactButton}
-                                    onPress={() => setIsModalVisible(true)}
-                                >
-                                    <Ionicons name="add" size={20} color="#FA782F" />
-                                    <Text style={styles.addContactText}>Add Contact</Text>
-                                </TouchableOpacity>
+                                {contacts.length < 5 && (
+                                    <TouchableOpacity
+                                        style={styles.addContactButton}
+                                        onPress={() => setIsModalVisible(true)}
+                                    >
+                                        <Ionicons name="add" size={20} color="#FA782F" />
+                                        <Text style={styles.addContactText}>Add Contact</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
 
                             {contacts.map((contact) => (
