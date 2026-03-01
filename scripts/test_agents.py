@@ -20,6 +20,7 @@ def _env_truthy(name: str) -> bool:
 
 
 RUN_API_INTEGRATION = _env_truthy("AMBER_RUN_API_INTEGRATION")
+VERBOSE = _env_truthy("AMBER_TEST_VERBOSE")
 
 
 class UnitTests(unittest.TestCase):
@@ -84,11 +85,52 @@ class ApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         self._client = httpx.AsyncClient(timeout=60)
         self._user_id = os.getenv("AMBER_TEST_USER_ID", "").strip() or str(uuid.uuid4())
+        self._created_incident_ids: list[str] = []
 
         health = await self._client.get(f"{BASE_URL}/health")
         if health.status_code != 200:
             await self._client.aclose()
             self.skipTest(f"Server health check failed at {BASE_URL}: {health.status_code} {health.text}")
+
+        if VERBOSE:
+            print(f"\n[AMBER] Integration test user_id={self._user_id} base_url={BASE_URL}")
+
+    def _log(self, message: str) -> None:
+        if VERBOSE:
+            print(f"[AMBER] {message}")
+
+    def _log_gap_analysis(self, gap_analysis: Any) -> None:
+        if not VERBOSE:
+            return
+        if not isinstance(gap_analysis, dict):
+            self._log(f"gap_analysis is not a dict: {type(gap_analysis)}")
+            return
+
+        present = gap_analysis.get("present")
+        missing = gap_analysis.get("missing")
+        summary = gap_analysis.get("summary", "")
+        present_count = len(present) if isinstance(present, list) else -1
+        missing_count = len(missing) if isinstance(missing, list) else -1
+        self._log(f"gap_analysis present={present_count} missing={missing_count}")
+        if isinstance(summary, str) and summary:
+            self._log(f"gap_analysis summary preview={summary[:180]}")
+
+    def _assert_gap_analysis_populated(self, gap_analysis: Any, *, context: str) -> None:
+        self.assertIsInstance(gap_analysis, dict, msg=f"{context}: gap_analysis missing or not a dict: {gap_analysis}")
+        present = gap_analysis.get("present")
+        missing = gap_analysis.get("missing")
+        self.assertIsInstance(present, list, msg=f"{context}: gap_analysis.present not a list: {present}")
+        self.assertIsInstance(missing, list, msg=f"{context}: gap_analysis.missing not a list: {missing}")
+
+        if len(present) == 0 and len(missing) == 0:
+            summary_preview = gap_analysis.get("summary", "")
+            if isinstance(summary_preview, str):
+                summary_preview = summary_preview[:300]
+            self.fail(
+                f"{context}: gap_analysis is empty (present=0, missing=0). "
+                f"This usually means the LLM response wasn't parsed as JSON or returned empty lists. "
+                f"summary_preview={summary_preview!r}"
+            )
 
     async def _create_note_incident(self) -> dict[str, Any]:
         resp = await self._client.post(
@@ -101,6 +143,36 @@ class ApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200, msg=resp.text)
         body = resp.json()
         self.assertTrue(body.get("incident_id"), msg=f"Expected incident_id, got: {body}")
+        self._created_incident_ids.append(body["incident_id"])
+        self._log(f"Created note incident_id={body['incident_id']}")
+        return body
+
+    async def _create_note_incident_with_text(self, text: str) -> dict[str, Any]:
+        resp = await self._client.post(
+            f"{BASE_URL}/agents/ingest/note",
+            json={
+                "user_id": self._user_id,
+                "text_content": text,
+            },
+        )
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertTrue(body.get("incident_id"), msg=f"Expected incident_id, got: {body}")
+        self._created_incident_ids.append(body["incident_id"])
+        self._log(f"Created note incident_id={body['incident_id']}")
+        return body
+
+    async def _upload_photo(self, file_name: str, png_bytes: bytes) -> dict[str, Any]:
+        files = {"file": (file_name, png_bytes, "image/png")}
+        data = {"user_id": self._user_id, "content_type": "photo"}
+        resp = await self._client.post(f"{BASE_URL}/agents/ingest/upload", files=files, data=data)
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertTrue(body.get("incident_id"), msg=f"Expected incident_id, got: {body}")
+        self.assertIn("file_url", body)
+        self.assertIn("file_hash", body)
+        self._created_incident_ids.append(body["incident_id"])
+        self._log(f"Uploaded photo incident_id={body['incident_id']} file_url={body.get('file_url', '')}")
         return body
 
     async def asyncTearDown(self) -> None:
@@ -117,16 +189,7 @@ class ApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_ingest_upload_photo(self) -> None:
         test_image_data = self._build_test_png_bytes(width=512, height=512)
-
-        files = {"file": ("test.png", test_image_data, "image/png")}
-        data = {"user_id": self._user_id, "content_type": "photo"}
-        resp = await self._client.post(f"{BASE_URL}/agents/ingest/upload", files=files, data=data)
-
-        self.assertEqual(resp.status_code, 200, msg=resp.text)
-        body = resp.json()
-        self.assertTrue(body.get("incident_id"), msg=f"Expected incident_id, got: {body}")
-        self.assertIn("file_url", body)
-        self.assertIn("file_hash", body)
+        await self._upload_photo(file_name="test.png", png_bytes=test_image_data)
 
     def _build_test_png_bytes(self, width: int, height: int) -> bytes:
         try:
@@ -158,11 +221,54 @@ class ApiIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body.get("report_id"), msg=f"Expected report_id, got: {body}")
         self.assertIn("pdf_url", body)
 
+        self._log(f"Generated report_id={body.get('report_id', '')} pdf_url={body.get('pdf_url', '')}")
+
+        gap_analysis = body.get("gap_analysis")
+        self._log_gap_analysis(gap_analysis)
+        self._assert_gap_analysis_populated(gap_analysis, context="test_legal_report")
+
         pdf_url = body.get("pdf_url")
         if isinstance(pdf_url, str) and pdf_url:
             pdf_resp = await self._client.get(pdf_url)
             self.assertEqual(pdf_resp.status_code, 200, msg=pdf_resp.text)
             self.assertTrue(pdf_resp.content.startswith(b"%PDF"), msg="Report URL did not return a PDF")
+
+    async def test_scenario_strong_case(self) -> None:
+        notes = [
+            "March 1: He threatened me if I told anyone. He said he would take my phone and lock me out.",
+            "March 3: He pushed me into a wall. I have bruising on my left arm and shoulder.",
+            "March 6: He broke my bedroom door and threw my laptop. I took photos of the damage.",
+            "March 9: He sent multiple threatening texts and said he would show up at my work.",
+            "March 12: I went to urgent care for a swollen wrist. I have discharge papers.",
+            "March 15: Neighbor heard yelling and banging and offered to be a witness.",
+            "March 18: He restricted access to my bank account and took my debit card.",
+        ]
+
+        for idx, note in enumerate(notes, 1):
+            with self.subTest(note_idx=idx):
+                await self._create_note_incident_with_text(note)
+
+        photo_1 = self._build_test_png_bytes(width=1024, height=768)
+        photo_2 = self._build_test_png_bytes(width=1280, height=720)
+        photo_3 = self._build_test_png_bytes(width=800, height=1200)
+
+        await self._upload_photo(file_name="injury_photo.png", png_bytes=photo_1)
+        await self._upload_photo(file_name="property_damage.png", png_bytes=photo_2)
+        await self._upload_photo(file_name="screenshot_messages.png", png_bytes=photo_3)
+
+        self.assertGreaterEqual(len(self._created_incident_ids), 10)
+        self._log(f"Seeded incidents={len(self._created_incident_ids)}")
+
+        resp = await self._client.post(f"{BASE_URL}/agents/report", json={"user_id": self._user_id})
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        body = resp.json()
+        self.assertTrue(body.get("report_id"), msg=f"Expected report_id, got: {body}")
+        self.assertIn("pdf_url", body)
+        self._log(f"Scenario report_id={body.get('report_id', '')} pdf_url={body.get('pdf_url', '')}")
+
+        gap_analysis = body.get("gap_analysis")
+        self._log_gap_analysis(gap_analysis)
+        self._assert_gap_analysis_populated(gap_analysis, context="test_scenario_strong_case")
 
 
 if __name__ == "__main__":

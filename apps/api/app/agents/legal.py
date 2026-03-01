@@ -16,13 +16,29 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 LEGAL_SYSTEM_PROMPT = """\
+Return ONLY valid JSON.
+
+Output MUST be a single JSON object with EXACTLY these keys:
+- "summary": string
+- "present": array of strings
+- "missing": array of strings
+- "notes": string
+
+Rules:
+- Do not output markdown fences.
+- Do not output any prose outside the JSON object.
+- Use double quotes for all JSON strings.
+- Do not include trailing commas.
+
+Minimal example (your output must match this structure):
+{"summary":"...","present":["..."],"missing":["..."],"notes":"..."}
+
 You are the Legal Agent for AMBER, a domestic violence evidence collection platform.
 
-Your role:
+Your job:
 1. Review all submitted evidence for a user.
 2. Produce a chronological summary in neutral, factual language.
-3. Perform a gap analysis: compare what evidence has been documented against what \
-courts typically consider in domestic violence cases.
+3. Perform a gap analysis: compare what evidence has been documented against what courts typically consider.
 
 Courts typically consider:
 - Photographs of injuries (with dates)
@@ -36,22 +52,70 @@ Courts typically consider:
 - Documentation of property damage
 - Pattern over time (multiple incidents showing escalation)
 
-Output a JSON object with these keys:
-- "summary": A 3-5 sentence overview of the evidence on file.
-- "present": A list of strings describing evidence types that ARE documented.
-- "missing": A list of strings describing evidence types courts typically look for \
-that are NOT yet documented.
-- "notes": Additional observations or suggestions, framed as "courts often also \
-consider..." or "you may want to discuss X with a lawyer."
-
 Use neutral language. Never say the case is strong or weak. Never render a verdict.
-Respond ONLY with valid JSON, no markdown fencing.
 """
 
 DISCLAIMER = (
     "DISCLAIMER: This is AI-generated and not legal advice. It is not legally accurate. "
     "Use it however is useful to you, but consult a lawyer before taking action."
 )
+
+
+def _extract_first_json_object(text: str) -> str | None:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if len(lines) >= 2 and lines[0].startswith("```"):
+            if lines[-1].strip() == "```":
+                cleaned = "\n".join(lines[1:-1]).strip()
+            else:
+                cleaned = "\n".join(lines[1:]).strip()
+
+    start = cleaned.find("{")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escape = False
+
+    for idx in range(start, len(cleaned)):
+        ch = cleaned[idx]
+
+        if in_string:
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return cleaned[start : idx + 1]
+
+    return None
+
+
+def _parse_gap_analysis_strict(raw: str) -> dict[str, Any]:
+    json_text = _extract_first_json_object(raw) or raw
+    gap_analysis = json.loads(json_text)
+    if not isinstance(gap_analysis, dict):
+        raise ValueError("Gap analysis JSON must be an object")
+
+    for key in ("summary", "present", "missing", "notes"):
+        gap_analysis.setdefault(key, "" if key in ("summary", "notes") else [])
+
+    return gap_analysis
 
 
 def legal_fetch_node(state: LegalState) -> LegalState:
@@ -106,9 +170,31 @@ def legal_analyze_node(state: LegalState) -> LegalState:
         raw = resp.content.strip()
 
         try:
-            gap_analysis = json.loads(raw)
-        except json.JSONDecodeError:
-            gap_analysis = {"summary": raw, "present": [], "missing": [], "notes": ""}
+            gap_analysis = _parse_gap_analysis_strict(raw)
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Legal analysis returned invalid JSON; retrying once: %s", exc)
+
+            correction = (
+                "Your previous response was invalid JSON. "
+                "Return ONLY a valid JSON object with keys: summary (string), present (array of strings), "
+                "missing (array of strings), notes (string). "
+                "Do not include markdown fences. Do not include trailing comments.\n\n"
+                f"JSON parse error: {exc}\n\n"
+                f"Previous response:\n{raw[:2000]}"
+            )
+
+            retry_messages = [
+                SystemMessage(content=LEGAL_SYSTEM_PROMPT),
+                HumanMessage(content=f"Evidence on file:\n{incident_block}\n\n{correction}"),
+            ]
+            retry_resp = llm.invoke(retry_messages)
+            retry_raw = retry_resp.content.strip()
+
+            try:
+                gap_analysis = _parse_gap_analysis_strict(retry_raw)
+            except (json.JSONDecodeError, ValueError) as exc2:
+                logger.error("Legal analysis retry still invalid JSON: %s", exc2)
+                return {**state, "error": f"Legal analysis invalid JSON after retry: {exc2}"}
 
         logger.info("Legal analysis complete: %d present, %d missing", len(gap_analysis.get("present", [])), len(gap_analysis.get("missing", [])))
         return {**state, "gap_analysis": gap_analysis, "report_summary": gap_analysis.get("summary", "")}
@@ -218,11 +304,18 @@ def _build_pdf(
     if incidents:
         table_data = [["#", "Date/Time", "Type", "Summary"]]
         for i, inc in enumerate(incidents, 1):
-            ts = str(inc.get("timestamp", ""))[:19]
+            ts = str(inc.get("timestamp", ""))[:19].replace("T", "\n")
             typ = inc.get("type", "")
             a = inc.get("analysis", {})
             s = a.get("summary", inc.get("content", "")[:100]) if isinstance(a, dict) else str(inc.get("content", ""))[:100]
-            table_data.append([str(i), ts, typ, Paragraph(s, body_style)])
+            table_data.append(
+                [
+                    str(i),
+                    Paragraph(ts, body_style),
+                    Paragraph(str(typ), body_style),
+                    Paragraph(s, body_style),
+                ]
+            )
 
         t = Table(table_data, colWidths=[0.4 * inch, 1.3 * inch, 0.7 * inch, 4.1 * inch])
         style = TableStyle([
@@ -233,6 +326,7 @@ def _build_pdf(
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("WORDWRAP", (0, 0), (-1, -1), "CJK"),
         ])
         # Alternate row shading
         for row_idx in range(1, len(table_data)):
@@ -255,7 +349,7 @@ def _build_pdf(
     for idx in range(max_rows):
         p = present[idx] if idx < len(present) else ""
         m = missing[idx] if idx < len(missing) else ""
-        gap_data.append([p, m])
+        gap_data.append([Paragraph(str(p), body_style), Paragraph(str(m), body_style)])
 
     gt = Table(gap_data, colWidths=[3.25 * inch, 3.25 * inch])
     gap_style = TableStyle([
@@ -267,6 +361,7 @@ def _build_pdf(
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ("WORDWRAP", (0, 0), (-1, -1), "CJK"),
     ])
     gt.setStyle(gap_style)
     elements.append(gt)
