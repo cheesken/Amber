@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from apps.api.app.agents.watchdog import WatchdogScheduler
-from apps.api.app.routes.agents import router as agents_router
+from app.agents.watchdog import WatchdogScheduler
+from app.routes.agents import router as agents_router
 
 logging.basicConfig(level=logging.INFO)
 
