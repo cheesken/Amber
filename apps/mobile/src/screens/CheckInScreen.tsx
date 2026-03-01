@@ -60,7 +60,7 @@ export const CheckInScreen: React.FC = () => {
                 ]);
                 setIsEnabled(config.is_active);
                 // Map frequency_hours back to id
-                const freqMap: any = { 24: 'daily', 48: '2days', 168: '7days', 336: '14days' };
+                const freqMap: any = { 10: 'daily', 20: '2days', 70: '7days', 140: '14days' };
                 setSelectedFrequency(freqMap[config.frequency_hours] || 'daily');
                 setLastCheckIn(config.last_checkin_at);
                 setNextCheckIn(config.next_due_at);
@@ -88,7 +88,7 @@ export const CheckInScreen: React.FC = () => {
 
     const handleFrequencyChange = async (freqId: string) => {
         setSelectedFrequency(freqId);
-        const freqHoursMap: any = { 'daily': 24, '2days': 48, '7days': 168, '14days': 336 };
+        const freqHoursMap: any = { 'daily': 10, '2days': 20, '7days': 70, '14days': 140 };
         try {
             const updated = await api.checkin.updateConfig({ frequency_hours: freqHoursMap[freqId] });
             setNextCheckIn(updated.next_due_at);

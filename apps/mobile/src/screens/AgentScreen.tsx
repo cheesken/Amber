@@ -104,44 +104,46 @@ export const AgentScreen: React.FC = () => {
         setSelectedContacts(newSelection);
     };
 
-    const confirmCall = () => {
+    const confirmCall = async () => {
         if (selectedContacts.size === 0) return;
 
-        // Get names of the selected contacts for the progress UI
-        const contactNames = contacts
-            .filter(c => selectedContacts.has(c.id))
-            .map(c => c.name);
+        const selectedContactObjects = contacts.filter(c => selectedContacts.has(c.id));
+        const contactNames = selectedContactObjects.map(c => c.name);
 
         setActiveCallTargets(contactNames);
         setIsCallModalVisible(false);
         setSelectedContacts(new Set());
 
-        // Simulate a 5-second call, then end and add to history
-        setTimeout(async () => {
-            const selectedContactObjects = contacts.filter(c => selectedContacts.has(c.id));
+        for (const contact of selectedContactObjects) {
+            try {
+                // Initiate the real ElevenLabs outbound call
+                const { conversation_id } = await api.agent.initiate(
+                    contact.id,
+                    contact.name,
+                );
 
-            for (const contact of selectedContactObjects) {
-                const callPayload = {
-                    contact_id: contact.id,
-                    contact_name: contact.name,
-                    duration: '0:05',
-                    transcript: [
-                        { speaker: 'AI Agent', text: `Hello, this is the Amber AI Assistant calling to share a journal summary with ${contact.name}...` },
-                        { speaker: contact.name, text: "I understand. I will keep an eye out." }
-                    ]
-                };
-
-                try {
-                    await api.agent.calls.create(callPayload);
-                } catch (e) {
-                    console.error('Failed to save call record:', e);
-                }
+                // Poll until the call finishes (max ~5 min)
+                let attempts = 0;
+                const maxAttempts = 60;
+                const poll = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const result = await api.agent.pollConversation(conversation_id);
+                        if (result.status === 'done' || attempts >= maxAttempts) {
+                            clearInterval(poll);
+                            fetchHistory();
+                            setActiveCallTargets(prev => prev.filter(n => n !== contact.name));
+                        }
+                    } catch {
+                        clearInterval(poll);
+                        setActiveCallTargets(prev => prev.filter(n => n !== contact.name));
+                    }
+                }, 5000); // poll every 5 seconds
+            } catch (e) {
+                console.error('Failed to initiate agent call:', e);
+                setActiveCallTargets(prev => prev.filter(n => n !== contact.name));
             }
-
-            // Refresh history from server after all calls are saved
-            fetchHistory();
-            setActiveCallTargets([]); // End the call
-        }, 5000);
+        }
     };
 
     return (

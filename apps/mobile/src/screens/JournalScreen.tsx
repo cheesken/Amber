@@ -3,7 +3,8 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAr
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio, Video, ResizeMode, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, AudioModule, RecordingPresets, setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import * as DocumentPicker from 'expo-document-picker';
 
 type TabType = 'Text' | 'Photo' | 'Video' | 'Audio';
@@ -18,82 +19,33 @@ const MOCK_JOURNAL_HISTORY = [
 ];
 
 const AudioPlayer = ({ uri }: { uri: string }) => {
-    const [sound, setSound] = useState<Audio.Sound | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const player = useAudioPlayer(uri, { downloadFirst: true, keepAudioSessionActive: true });
+    const status = useAudioPlayerStatus(player);
 
-    async function playSound() {
-        try {
-            // CRITICAL: Set allowsRecordingIOS to false to ensure audio routes to the main speaker, not the earpiece.
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: false,
-                playsInSilentModeIOS: true,
-                interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-                shouldDuckAndroid: true,
-                interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-                playThroughEarpieceAndroid: false,
-                staysActiveInBackground: false,
-            });
-
-            if (sound) {
-                await sound.setVolumeAsync(1.0);
-                await sound.playAsync();
-                setIsPlaying(true);
-                return;
+    const togglePlayback = async () => {
+        if (status.playing) {
+            player.pause();
+        } else {
+            try {
+                await setIsAudioActiveAsync(true);
+                await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+                player.play();
+            } catch (e) {
+                console.error('Audio play error:', e);
             }
-
-            setLoading(true);
-            const { sound: newSound } = await Audio.Sound.createAsync(
-                { uri },
-                { shouldPlay: true, volume: 1.0 }
-            );
-            setSound(newSound);
-            setIsPlaying(true);
-            newSound.setOnPlaybackStatusUpdate((status: any) => {
-                if (status.didJustFinish) {
-                    setIsPlaying(false);
-                    newSound.setPositionAsync(0);
-                    newSound.pauseAsync();
-                }
-            });
-        } catch (error) {
-            console.error('Error loading sound', error);
-            Alert.alert('Error', 'Failed to load audio.');
-        } finally {
-            setLoading(false);
         }
-    }
+    };
 
-    async function pauseSound() {
-        if (sound) {
-            await sound.pauseAsync();
-            setIsPlaying(false);
-        }
-    }
-
-    useEffect(() => {
-        return sound
-            ? () => {
-                sound.unloadAsync();
-            }
-            : undefined;
-    }, [sound]);
+    const label = !status.isLoaded ? 'Loading...' : status.playing ? 'Playing...' : 'Tap to Play';
 
     return (
         <View style={[styles.detailImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
-            <TouchableOpacity
-                onPress={isPlaying ? pauseSound : playSound}
-                disabled={loading}
-                style={{ alignItems: 'center' }}
-            >
-                {loading ? (
-                    <ActivityIndicator color="#4CAF50" />
-                ) : (
-                    <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={64} color="#4CAF50" />
-                )}
-                <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>
-                    {isPlaying ? 'Playing...' : 'Tap to Play'}
-                </Text>
+            <TouchableOpacity onPress={togglePlayback} disabled={!status.isLoaded} style={{ alignItems: 'center' }}>
+                {!status.isLoaded
+                    ? <ActivityIndicator color="#4CAF50" size="large" />
+                    : <Ionicons name={status.playing ? "pause-circle" : "play-circle"} size={64} color="#4CAF50" />
+                }
+                <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>{label}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -105,7 +57,13 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [videoUri, setVideoUri] = useState<string | null>(null);
     const [audioUri, setAudioUri] = useState<string | null>(null);
-    const [recording, setRecording] = useState<Audio.Recording | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY, (status) => {
+        if (status.isFinished && !status.hasError && status.url) {
+            setAudioUri(status.url);
+            setIsRecording(false);
+        }
+    });
 
     // State for viewing history details
     const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
@@ -115,16 +73,6 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
 
     useEffect(() => {
         fetchHistory();
-        // Initialize audio mode
-        Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-            interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-            shouldDuckAndroid: true,
-            interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-            playThroughEarpieceAndroid: false,
-            staysActiveInBackground: false,
-        }).catch(err => console.log('Audio init failed', err));
     }, []);
 
     const fetchHistory = async () => {
@@ -174,7 +122,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                 else if (incidentType === 'video') mimeType = 'video/mp4';
                 else if (incidentType === 'audio') {
                     // Expo iOS recordings are typically .m4a
-                    mimeType = filename.endsWith('.m4a') ? 'audio/x-m4a' : 'audio/mpeg';
+                    mimeType = filename.endsWith('.m4a') ? 'audio/mp4' : 'audio/mpeg';
                 }
 
                 formData.append('file', {
@@ -210,20 +158,15 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                         text: 'Record Audio',
                         onPress: async () => {
                             try {
-                                const permission = await Audio.requestPermissionsAsync();
-                                if (permission.status !== 'granted') {
+                                const permission = await AudioModule.requestRecordingPermissionsAsync();
+                                if (!permission.granted) {
                                     Alert.alert('Permission Required', 'Sorry, we need microphone permissions to record audio!');
                                     return;
                                 }
-
-                                await Audio.setAudioModeAsync({
-                                    allowsRecordingIOS: true,
-                                    playsInSilentModeIOS: true,
-                                });
-
-                                const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-                                setRecording(recording);
-                                console.log('Starting recording...');
+                                await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+                                await audioRecorder.prepareToRecordAsync();
+                                audioRecorder.record();
+                                setIsRecording(true);
                             } catch (err) {
                                 console.error('Failed to start recording', err);
                                 Alert.alert('Error', 'Failed to start recording.');
@@ -307,16 +250,14 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
     };
 
     const stopRecording = async () => {
-        if (!recording) return;
-
-        console.log('Stopping recording...');
+        if (!isRecording) return;
         try {
-            await recording.stopAndUnloadAsync();
-            const uri = recording.getURI();
-            setRecording(null);
-            setAudioUri(uri);
+            await audioRecorder.stop();
+            await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+            // URI and isRecording are set by the statusListener callback above
         } catch (err) {
             console.error('Failed to stop recording', err);
+            setIsRecording(false);
         }
     };
 
@@ -356,7 +297,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                                     <Ionicons name="close-circle" size={24} color="#333" />
                                 </TouchableOpacity>
                             </View>
-                        ) : (activeTab === 'Audio' && recording) ? (
+                        ) : (activeTab === 'Audio' && isRecording) ? (
                             <View style={[styles.dashedUploadBox, { borderColor: '#E53935' }]}>
                                 <Ionicons name="mic" size={32} color="#E53935" style={{ marginBottom: 10 }} />
                                 <Text style={[styles.uploadText, { color: '#E53935' }]}>Recording in progress...</Text>

@@ -101,7 +101,7 @@ def _upload_to_storage(user_id: str, incident_id: str, file_name: str, file_byte
         ".png": "image/png",
         ".mp4": "video/mp4",
         ".mov": "video/quicktime",
-        ".m4a": "audio/x-m4a",
+        ".m4a": "audio/mp4",
         ".mp3": "audio/mpeg",
         ".wav": "audio/wav",
     }

@@ -15,20 +15,21 @@ logger = logging.getLogger(__name__)
 class WatchdogScheduler:
     """Cron-based check-in monitor that runs tiered escalation."""
 
-    def __init__(self, interval_minutes: int = 5):
+    def __init__(self, interval_seconds: int = 10):
         self._scheduler = BackgroundScheduler()
-        self._interval_minutes = interval_minutes
+        self._interval_seconds = interval_seconds
 
     def start(self) -> None:
         self._scheduler.add_job(
             _check_all_users,
             "interval",
-            minutes=self._interval_minutes,
+            seconds=self._interval_seconds,
             id="watchdog_sweep",
             replace_existing=True,
+            max_instances=1,  # Prevent overlapping runs when notifications take >interval seconds
         )
         self._scheduler.start()
-        logger.info("Watchdog scheduler started (every %d min)", self._interval_minutes)
+        logger.info("Watchdog scheduler started (every %d sec)", self._interval_seconds)
 
     def stop(self) -> None:
         self._scheduler.shutdown(wait=False)
@@ -71,11 +72,47 @@ def _check_all_users() -> None:
                 "was_missed": True,
             }).execute()
 
-            # Determine which tier to fire
+            # Deactivate after firing — escalation fires only once until user logs in again
+            sb.table("checkin_config").update({
+                "is_active": False,
+                "next_due_at": None
+            }).eq("user_id", user_id).execute()
+
+            # Notify personal contact, then run tiered escalation
+            settings = get_settings()
+            _notify_personal(cfg.get("users"), cfg.get("frequency_hours", 10), settings)
             _escalate(user_id, cfg.get("users"))
 
     except Exception:
         logger.exception("Watchdog sweep failed")
+
+
+def _notify_personal(user_data: dict | None, frequency_hours: int, settings) -> None:
+    """Send a one-time missed check-in alert to the personal phone number."""
+    if not settings.personal_phone_number:
+        logger.warning("PERSONAL_PHONE_NUMBER not set; skipping personal notification")
+        return
+
+    ud = user_data or {}
+    first_name = ud.get("first_name") or "Someone"
+    last_name = ud.get("last_name") or ""
+    full_name = f"{first_name} {last_name}".strip()
+
+    freq_labels = {10: "daily", 20: "every 2 days", 70: "every 7 days", 140: "every 14 days"}
+    freq_label = freq_labels.get(frequency_hours, "on a regular schedule")
+
+    message = (
+        f"Hi {settings.personal_name}, this is Amber — a personal safety app. "
+        f"I'm reaching out on behalf of {full_name}, who set up a safety check-in {freq_label}. "
+        f"They've missed their scheduled check-in and haven't been heard from. "
+        f"Please reach out to them to make sure they're safe and well."
+    )
+
+    result = _send_sms(settings.personal_phone_number, message, settings)
+    if result == "delivered":
+        logger.info("Personal notification sent to %s", settings.personal_phone_number)
+    else:
+        logger.warning("Personal notification %s to %s", result, settings.personal_phone_number)
 
 
 def _escalate(user_id: str, user_data: dict | None) -> None:
@@ -156,8 +193,8 @@ def _send_sms(phone: str, message: str, settings) -> str:
             f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
             auth=(settings.twilio_account_sid, settings.twilio_auth_token),
             data={
-                "From": settings.twilio_from_number,
-                "To": phone,
+                "From": f"whatsapp:{settings.twilio_from_number}",
+                "To": f"whatsapp:{phone}",
                 "Body": message,
             },
             timeout=15,

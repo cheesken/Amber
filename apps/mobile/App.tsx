@@ -68,6 +68,11 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    try {
+      await api.checkin.updateConfig({ is_active: false });
+    } catch (e) {
+      console.log('[App] Failed to deactivate check-in on logout', e);
+    }
     await signOut();
     setSecretCode(null);
     setAuthMode('login');

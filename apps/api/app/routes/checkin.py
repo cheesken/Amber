@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.agents.ingest import _get_supabase, _create_user_if_not_exists
@@ -43,7 +43,7 @@ class ContactResponse(ContactBase):
 # --- Helper ---
 
 def _calculate_next_due(frequency_hours: int) -> datetime:
-    return datetime.now(timezone.utc) + timedelta(hours=frequency_hours)
+    return datetime.now(timezone.utc) + timedelta(seconds=frequency_hours)
 
 # --- Check-in Endpoints ---
 
@@ -58,10 +58,10 @@ async def get_checkin_config(user_id: str):
         now = datetime.now(timezone.utc)
         default_config = {
             "user_id": user_id,
-            "frequency_hours": 24,
+            "frequency_hours": 10,
             "is_active": True,
             "last_checkin_at": now.isoformat(),
-            "next_due_at": _calculate_next_due(24).isoformat()
+            "next_due_at": _calculate_next_due(10).isoformat()
         }
         _create_user_if_not_exists(user_id)
         new_cfg = sb.table("checkin_config").insert(default_config).execute()
@@ -104,6 +104,7 @@ async def perform_checkin(user_id: str):
     
     # Update config
     sb.table("checkin_config").update({
+        "is_active": True,
         "last_checkin_at": now.isoformat(),
         "next_due_at": next_due.isoformat()
     }).eq("user_id", user_id).execute()

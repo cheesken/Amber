@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback, ActivityIndicator, AppState, Image, ScrollView, Alert } from 'react-native';
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio, Video, ResizeMode, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import JournalScreen from './JournalScreen';
 import { NavBar, TabId } from '../components/NavBar';
 import { ProfileScreen } from './ProfileScreen';
@@ -19,82 +20,33 @@ interface VaultScreenProps {
 const EVIDENCE_ITEMS: any[] = [];
 
 const AudioPlayer = ({ uri }: { uri: string }) => {
-    const [sound, setSound] = useState<Audio.Sound | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const player = useAudioPlayer(uri, { downloadFirst: true, keepAudioSessionActive: true });
+    const status = useAudioPlayerStatus(player);
 
-    async function playSound() {
-        try {
-            // CRITICAL: Set allowsRecordingIOS to false to ensure audio routes to the main speaker, not the earpiece.
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: false,
-                playsInSilentModeIOS: true,
-                interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-                shouldDuckAndroid: true,
-                interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-                playThroughEarpieceAndroid: false,
-                staysActiveInBackground: false,
-            });
-
-            if (sound) {
-                await sound.setVolumeAsync(1.0);
-                await sound.playAsync();
-                setIsPlaying(true);
-                return;
+    const togglePlayback = async () => {
+        if (status.playing) {
+            player.pause();
+        } else {
+            try {
+                await setIsAudioActiveAsync(true);
+                await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+                player.play();
+            } catch (e) {
+                console.error('Audio play error:', e);
             }
-
-            setLoading(true);
-            const { sound: newSound } = await Audio.Sound.createAsync(
-                { uri },
-                { shouldPlay: true, volume: 1.0 }
-            );
-            setSound(newSound);
-            setIsPlaying(true);
-            newSound.setOnPlaybackStatusUpdate((status: any) => {
-                if (status.didJustFinish) {
-                    setIsPlaying(false);
-                    newSound.setPositionAsync(0);
-                    newSound.pauseAsync();
-                }
-            });
-        } catch (error) {
-            console.error('Error loading sound', error);
-            Alert.alert('Error', 'Failed to load audio.');
-        } finally {
-            setLoading(false);
         }
-    }
+    };
 
-    async function pauseSound() {
-        if (sound) {
-            await sound.pauseAsync();
-            setIsPlaying(false);
-        }
-    }
-
-    useEffect(() => {
-        return sound
-            ? () => {
-                sound.unloadAsync();
-            }
-            : undefined;
-    }, [sound]);
+    const label = !status.isLoaded ? 'Loading...' : status.playing ? 'Playing...' : 'Tap to Play';
 
     return (
         <View style={{ width: '100%', height: '100%', backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
-            <TouchableOpacity
-                onPress={isPlaying ? pauseSound : playSound}
-                disabled={loading}
-                style={{ alignItems: 'center' }}
-            >
-                {loading ? (
-                    <ActivityIndicator color="#4CAF50" />
-                ) : (
-                    <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={64} color="#4CAF50" />
-                )}
-                <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>
-                    {isPlaying ? 'Playing...' : 'Tap to Play'}
-                </Text>
+            <TouchableOpacity onPress={togglePlayback} disabled={!status.isLoaded} style={{ alignItems: 'center' }}>
+                {!status.isLoaded
+                    ? <ActivityIndicator color="#4CAF50" size="large" />
+                    : <Ionicons name={status.playing ? "pause-circle" : "play-circle"} size={64} color="#4CAF50" />
+                }
+                <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>{label}</Text>
             </TouchableOpacity>
         </View>
     );

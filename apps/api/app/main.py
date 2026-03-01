@@ -12,7 +12,7 @@ from app.routes.agent import router as agent_router
 
 logging.basicConfig(level=logging.INFO)
 
-_watchdog = WatchdogScheduler(interval_minutes=5)
+_watchdog = WatchdogScheduler(interval_seconds=10)
 
 
 @asynccontextmanager

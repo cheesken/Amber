@@ -109,6 +109,19 @@ export const api = {
                 });
             },
         },
+        initiate: async (contactId: string, contactName: string) => {
+            const userId = await getUserId();
+            return apiFetch(`/agent/initiate/${userId}`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    contact_id: contactId,
+                    contact_name: contactName,
+                }),
+            });
+        },
+        pollConversation: async (conversationId: string) => {
+            return apiFetch(`/agent/conversation/${conversationId}`);
+        },
     },
     contacts: {
         list: async () => {
