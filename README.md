@@ -8,7 +8,7 @@ Monorepo for the AMBER hackathon project.
 - **Backend**: FastAPI (Python 3.11)
 - **Database**: Supabase (PostgreSQL + Storage)
 - **Storage Bucket**: Ensure a public or RLS-protected bucket named `amber-vault` exists in Supabase.
-- **Orchestration**: LangGraph + GPT-4o
+- **Orchestration**: LangGraph + Groq (Llama)
 
 ## Prerequisites
 
