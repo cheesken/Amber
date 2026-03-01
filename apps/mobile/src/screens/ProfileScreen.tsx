@@ -35,6 +35,8 @@ const INITIAL_PROFILE: UserProfile = {
 
 export const ProfileScreen: React.FC = () => {
     const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
+    const [isEditing, setIsEditing] = useState(false);
+    const [isCardExpanded, setIsCardExpanded] = useState(true);
     const [isGenderModalVisible, setIsGenderModalVisible] = useState(false);
     const genderOptions = ['Female', 'Male', 'Non-binary', 'Prefer not to say', 'Other'];
 
@@ -43,7 +45,21 @@ export const ProfileScreen: React.FC = () => {
     };
 
     const handleSave = () => {
+        const trimmedAge = profile.age.trim();
+        if (trimmedAge !== '') {
+            if (!/^\d+$/.test(trimmedAge)) {
+                Alert.alert('Invalid Age', 'Age must be a whole number.');
+                return;
+            }
+            const ageNum = parseInt(trimmedAge, 10);
+            if (ageNum < 0 || ageNum > 120) {
+                Alert.alert('Invalid Age', 'Please enter a valid age between 0 and 120.');
+                return;
+            }
+        }
+
         // Here, we would make an API call to update the 'users' table in Supabase
+        setIsEditing(false);
         Alert.alert('Profile Saved', 'Your physical description has been securely saved.');
     };
 
@@ -59,70 +75,103 @@ export const ProfileScreen: React.FC = () => {
             >
                 {/* Header Card */}
                 <View style={styles.mainCard}>
-                    <View style={styles.cardHeader}>
+                    <TouchableOpacity
+                        style={styles.cardHeader}
+                        onPress={() => setIsCardExpanded(!isCardExpanded)}
+                        activeOpacity={0.7}
+                    >
                         <View style={styles.iconContainer}>
                             <Ionicons name="person-circle-outline" size={28} color="#FA782F" />
                         </View>
                         <View style={styles.cardTitleContainer}>
-                            <Text style={styles.cardTitle}>Your Identity</Text>
-                            <Text style={styles.cardDescription}>
-                                This physical description is used strictly if your emergency contacts need to provide details to first responders or authorities.
-                            </Text>
+                            <View style={styles.titleRow}>
+                                <Text style={styles.cardTitle}>Your Identity</Text>
+                                <Ionicons
+                                    name={isCardExpanded ? "chevron-up" : "chevron-down"}
+                                    size={20}
+                                    color="#FA782F"
+                                />
+                            </View>
+                            {isCardExpanded && (
+                                <Text style={styles.cardDescription}>
+                                    This physical description is used strictly if your emergency contacts need to provide details to first responders or authorities.
+                                </Text>
+                            )}
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Form Elements */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Basic Info</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Basic Info</Text>
+                        <TouchableOpacity
+                            style={styles.editModeToggleAligned}
+                            onPress={() => setIsEditing(!isEditing)}
+                        >
+                            <Ionicons
+                                name={isEditing ? "close-outline" : "create-outline"}
+                                size={20}
+                                color={isEditing ? "#999" : "#FA782F"}
+                            />
+                            <Text style={{ color: isEditing ? "#999" : "#FA782F", marginLeft: 4, fontWeight: 'bold' }}>
+                                {isEditing ? "Cancel" : "Edit"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>First Name</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, !isEditing && styles.readOnlyInput]}
                             value={profile.firstName}
                             onChangeText={(text) => updateField('firstName', text)}
-                            placeholder="First Name"
-                            placeholderTextColor="#A0A0A0"
+                            placeholder={isEditing ? "First Name" : "-"}
+                            placeholderTextColor={isEditing ? "#A0A0A0" : "#666666"}
+                            editable={isEditing}
                         />
                     </View>
 
                     <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>Last Name</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, !isEditing && styles.readOnlyInput]}
                             value={profile.lastName}
                             onChangeText={(text) => updateField('lastName', text)}
-                            placeholder="Last Name"
-                            placeholderTextColor="#A0A0A0"
+                            placeholder={isEditing ? "Last Name" : "-"}
+                            placeholderTextColor={isEditing ? "#A0A0A0" : "#666666"}
+                            editable={isEditing}
                         />
                     </View>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Physical Description</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Physical Description</Text>
+                    </View>
 
                     <View style={styles.row}>
                         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                             <Text style={styles.inputLabel}>Age</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, !isEditing && styles.readOnlyInput]}
                                 value={profile.age}
                                 onChangeText={(text) => updateField('age', text)}
-                                placeholder="Age"
+                                placeholder={isEditing ? "Age" : "-"}
                                 keyboardType="numeric"
-                                placeholderTextColor="#A0A0A0"
+                                placeholderTextColor={isEditing ? "#A0A0A0" : "#666666"}
+                                editable={isEditing}
                             />
                         </View>
                         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                             <Text style={styles.inputLabel}>Gender</Text>
                             <TouchableOpacity
-                                style={[styles.input, { justifyContent: 'center' }]}
-                                onPress={() => setIsGenderModalVisible(true)}
-                                activeOpacity={0.7}
+                                style={[styles.input, { justifyContent: 'center' }, !isEditing && styles.readOnlyInput]}
+                                onPress={() => isEditing && setIsGenderModalVisible(true)}
+                                activeOpacity={isEditing ? 0.7 : 1}
                             >
-                                <Text style={{ color: profile.gender ? '#333333' : '#A0A0A0', fontSize: 16 }}>
-                                    {profile.gender || "Gender"}
+                                <Text style={{ color: profile.gender ? (isEditing ? '#333333' : '#666666') : (isEditing ? '#A0A0A0' : '#666666'), fontSize: 16 }}>
+                                    {profile.gender || (isEditing ? "Gender" : "-")}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -131,11 +180,12 @@ export const ProfileScreen: React.FC = () => {
                     <View style={styles.inputGroup}>
                         <Text style={styles.inputLabel}>Race / Ethnicity</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, !isEditing && styles.readOnlyInput]}
                             value={profile.race}
                             onChangeText={(text) => updateField('race', text)}
-                            placeholder="Describe your race or ethnicity"
-                            placeholderTextColor="#A0A0A0"
+                            placeholder={isEditing ? "Describe your race or ethnicity" : "-"}
+                            placeholderTextColor={isEditing ? "#A0A0A0" : "#666666"}
+                            editable={isEditing}
                         />
                     </View>
 
@@ -143,30 +193,34 @@ export const ProfileScreen: React.FC = () => {
                         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                             <Text style={styles.inputLabel}>Hair Color</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, !isEditing && styles.readOnlyInput]}
                                 value={profile.hairColor}
                                 onChangeText={(text) => updateField('hairColor', text)}
-                                placeholder="Hair Color"
-                                placeholderTextColor="#A0A0A0"
+                                placeholder={isEditing ? "Hair Color" : "-"}
+                                placeholderTextColor={isEditing ? "#A0A0A0" : "#666666"}
+                                editable={isEditing}
                             />
                         </View>
                         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                             <Text style={styles.inputLabel}>Eye Color</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, !isEditing && styles.readOnlyInput]}
                                 value={profile.eyeColor}
                                 onChangeText={(text) => updateField('eyeColor', text)}
-                                placeholder="Eye Color"
-                                placeholderTextColor="#A0A0A0"
+                                placeholder={isEditing ? "Eye Color" : "-"}
+                                placeholderTextColor={isEditing ? "#A0A0A0" : "#666666"}
+                                editable={isEditing}
                             />
                         </View>
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
-                    <Ionicons name="save-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.saveButtonText}>Save Profile Information</Text>
-                </TouchableOpacity>
+                {isEditing && (
+                    <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
+                        <Ionicons name="save-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.saveButtonText}>Save Profile Information</Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* Bottom padding */}
                 <View style={{ height: 40 }} />
@@ -229,7 +283,7 @@ const styles = StyleSheet.create({
     },
     cardHeader: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
     },
     iconContainer: {
         width: 48,
@@ -247,12 +301,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#5D4037', // Brown text fits amber theme
-        marginBottom: 6,
     },
     cardDescription: {
         fontSize: 14,
         color: '#8D6E63',
         lineHeight: 20,
+        marginTop: 6,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     section: {
         marginBottom: 24,
@@ -261,7 +320,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333333',
-        marginBottom: 16,
     },
     inputGroup: {
         marginBottom: 16,
@@ -285,6 +343,25 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         fontSize: 16,
         color: '#333333',
+    },
+    readOnlyInput: {
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        color: '#666666',
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    editModeToggleAligned: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: '#FFECC7',
+        borderRadius: 20,
     },
     saveButton: {
         flexDirection: 'row',
