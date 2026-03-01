@@ -56,22 +56,28 @@ async def update_profile(user_id: str, profile: ProfileData):
         k: v for k, v in profile.model_dump().items() if v is not None
     }
     
-    if not update_data:
-        # If nothing to update, just return current state
-        return await get_profile(user_id)
-    
-    result = sb.table("users").update(update_data).eq("id", user_id).execute()
-    
-    if not result.data:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        if not update_data:
+            # If nothing to update, just return current state
+            return await get_profile(user_id)
         
-    row = result.data[0]
-    return ProfileData(
-        first_name=row.get("first_name"),
-        last_name=row.get("last_name"),
-        gender=row.get("gender"),
-        age=row.get("age"),
-        hair_color=row.get("hair_color"),
-        eye_color=row.get("eye_color"),
-        race=row.get("race"),
-    )
+        result = sb.table("users").update(update_data).eq("id", user_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        row = result.data[0]
+        return ProfileData(
+            first_name=row.get("first_name"),
+            last_name=row.get("last_name"),
+            gender=row.get("gender"),
+            age=row.get("age"),
+            hair_color=row.get("hair_color"),
+            eye_color=row.get("eye_color"),
+            race=row.get("race"),
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+

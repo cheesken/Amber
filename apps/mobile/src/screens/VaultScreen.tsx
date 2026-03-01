@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import JournalScreen from './JournalScreen';
 import { NavBar, TabId } from '../components/NavBar';
@@ -10,16 +11,13 @@ import { Header } from '../components/Header';
 
 interface VaultScreenProps {
     onQuickExit: () => void;
+    onLogout: () => void;
 }
 
-// Dummy evidence
-const EVIDENCE_ITEMS = [
-    { id: '1', title: 'Suspicious Car License', type: 'Text', date: 'Oct 24, 2026' },
-    { id: '2', title: 'Audio Argument', type: 'Audio', date: 'Oct 23, 2026' },
-    { id: '3', title: 'Photo of broken window', type: 'Photo', date: 'Oct 21, 2026' },
-];
+// Dummy evidence (fallback)
+const EVIDENCE_ITEMS: any[] = [];
 
-export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
+export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
     const [currentView, setCurrentView] = useState<'evidence' | 'journal'>('journal');
     const [activeTab, setActiveTab] = useState<TabId>('journal');
 
@@ -27,6 +25,31 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
     const [dropdownVisible, setDropdownVisible] = useState<'none' | 'date' | 'type'>('none');
     const [dateSort, setDateSort] = useState<'newest' | 'oldest' | 'custom_7' | 'custom_30'>('newest');
     const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'Text' | 'Photo' | 'Video' | 'Audio'>('all');
+    const [evidence, setEvidence] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (activeTab === 'journal' && currentView === 'evidence') {
+            fetchEvidence();
+        }
+    }, [activeTab, currentView]);
+
+    const fetchEvidence = async () => {
+        try {
+            const data = await api.incidents.list();
+            const mapped = data.map((item: any) => ({
+                id: item.id,
+                title: item.content ? (item.content.length > 30 ? item.content.substring(0, 30) + '...' : item.content) : `Entry ${item.type}`,
+                type: item.type === 'note' ? 'Text' : (item.type.charAt(0).toUpperCase() + item.type.slice(1)),
+                date: new Date(item.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            }));
+            setEvidence(mapped);
+        } catch (error) {
+            console.error('Failed to fetch evidence:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleTabPress = (id: TabId) => {
         setActiveTab(id);
@@ -51,7 +74,7 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
 
     // Filtering and Sorting Logic
     const filteredEvidence = useMemo(() => {
-        let result = [...EVIDENCE_ITEMS];
+        let result = [...evidence];
 
         // Filter by type
         if (evidenceFilter !== 'all') {
@@ -143,7 +166,7 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
         if (activeTab === 'profile') {
             return (
                 <View style={styles.tabContentWrapper}>
-                    <ProfileScreen />
+                    <ProfileScreen onLogout={onLogout} />
                 </View>
             );
         }
@@ -192,13 +215,17 @@ export const VaultScreen = ({ onQuickExit }: VaultScreenProps) => {
                         </TouchableOpacity>
                     </View>
 
-                    <FlatList
-                        data={filteredEvidence}
-                        keyExtractor={item => item.id}
-                        renderItem={renderItem}
-                        contentContainerStyle={styles.listContainer}
-                        ListEmptyComponent={<Text style={styles.emptyText}>No evidence found remotely match criteria.</Text>}
-                    />
+                    {loading ? (
+                        <ActivityIndicator style={{ marginTop: 40 }} color="#4CAF50" />
+                    ) : (
+                        <FlatList
+                            data={filteredEvidence}
+                            keyExtractor={item => item.id}
+                            renderItem={renderItem}
+                            contentContainerStyle={styles.listContainer}
+                            ListEmptyComponent={<Text style={styles.emptyText}>No evidence found match criteria.</Text>}
+                        />
+                    )}
                 </View>
 
                 {/* Dropdown Modal */}

@@ -4,21 +4,27 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { VaultScreen } from './src/screens/VaultScreen';
 import { TimerScreen } from './src/screens/Timer';
 import { SignUpScreen } from './src/screens/SignUpScreen';
-import { isSignedUp, getStoredCode } from './src/lib/auth';
+import { InitialSetupScreen } from './src/screens/InitialSetupScreen';
+import { isSignedUp, getStoredCode, signOut } from './src/lib/auth';
 
 export default function App() {
-  const [view, setView] = useState<'loading' | 'signup' | 'disguise' | 'vault'>('loading');
+  const [view, setView] = useState<'loading' | 'signup' | 'setup' | 'disguise' | 'vault'>('loading');
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
   const [secretCode, setSecretCode] = useState<number | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Check current auth state
+      console.log('[App] Checking initial auth state...');
+
       const signedUp = await isSignedUp();
       if (signedUp) {
         const code = await getStoredCode();
         setSecretCode(code);
         setView('disguise');
       } else {
+        setAuthMode('signup');
         setView('signup');
       }
     };
@@ -28,6 +34,10 @@ export default function App() {
   const handleSignUpComplete = async () => {
     const code = await getStoredCode();
     setSecretCode(code);
+    setView('setup'); // Route to initial setup after signup
+  };
+
+  const handleSetupComplete = () => {
     setShowOverlay(true);
     setView('disguise');
   };
@@ -40,6 +50,13 @@ export default function App() {
 
   const handleUnlock = () => {
     setView('vault');
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setSecretCode(null);
+    setAuthMode('login');
+    setView('signup');
   };
 
   const handleQuickExit = () => {
@@ -59,7 +76,14 @@ export default function App() {
   return (
     <View style={styles.container}>
       {view === 'signup' && (
-        <SignUpScreen onSignUpComplete={handleSignUpComplete} onLoginComplete={handleLoginComplete} />
+        <SignUpScreen
+          onSignUpComplete={handleSignUpComplete}
+          onLoginComplete={handleLoginComplete}
+          initialMode={authMode}
+        />
+      )}
+      {view === 'setup' && (
+        <InitialSetupScreen onComplete={handleSetupComplete} />
       )}
       {view === 'disguise' && (
         <TimerScreen
@@ -70,7 +94,7 @@ export default function App() {
         />
       )}
       {view === 'vault' && (
-        <VaultScreen onQuickExit={handleQuickExit} />
+        <VaultScreen onQuickExit={handleQuickExit} onLogout={handleLogout} />
       )}
       <StatusBar style="auto" />
     </View>

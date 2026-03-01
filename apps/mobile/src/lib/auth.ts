@@ -19,6 +19,12 @@ export async function getStoredUserId(): Promise<string | null> {
   return SecureStore.getItemAsync(USER_ID_KEY);
 }
 
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut();
+  await SecureStore.deleteItemAsync(USER_ID_KEY);
+  await SecureStore.deleteItemAsync(SECRET_CODE_KEY);
+}
+
 export async function logIn(
   username: string,
   password: string
@@ -77,8 +83,10 @@ export async function signUp(
       return { success: false, error: error.message };
     }
 
+    console.log('[Auth] SignUp successful, saving User ID:', data.id);
     await SecureStore.setItemAsync(USER_ID_KEY, data.id);
     await SecureStore.setItemAsync(SECRET_CODE_KEY, code.toString());
+    console.log('[Auth] User ID and Secret Code saved to SecureStore');
 
     return { success: true };
   } catch (e: any) {

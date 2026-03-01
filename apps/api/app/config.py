@@ -3,13 +3,9 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
-from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic_settings import BaseSettings
 
-load_dotenv()
-
-
-class Settings(BaseModel):
+class Settings(BaseSettings):
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_secret_key: str = os.getenv("SUPABASE_SECRET_KEY", "")
     supabase_publishable_key: str = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
@@ -26,6 +22,12 @@ class Settings(BaseModel):
 
     groq_model: str = "llama-3.3-70b-versatile"
     reka_model: str = "reka-core"
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 @lru_cache

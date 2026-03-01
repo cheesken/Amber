@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Image, Alert, FlatList, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Image, Alert, FlatList, Modal, ActivityIndicator } from 'react-native';
+import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
@@ -11,11 +12,9 @@ interface JournalScreenProps {
     onViewEvidence: () => void;
 }
 
-// Dummy journal history
+// Dummy journal history (fallback)
 const MOCK_JOURNAL_HISTORY = [
     { id: '1', title: 'Suspicious Car License', type: 'Text', date: 'Oct 24, 2026', content: 'Saw a dark sedan parked outside for three hours. License plate started with XYZ.' },
-    { id: '2', title: 'Audio Argument', type: 'Audio', date: 'Oct 23, 2026', content: 'Recorded an audio of the argument occurring near the kitchen.' },
-    { id: '3', title: 'Photo of broken window', type: 'Photo', date: 'Oct 21, 2026', content: 'Found the back window shattered. No sign of entry but very suspicious.' },
 ];
 
 export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
@@ -28,6 +27,61 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
 
     // State for viewing history details
     const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
+    const [history, setHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        fetchHistory();
+    }, []);
+
+    const fetchHistory = async () => {
+        try {
+            const data = await api.incidents.list();
+            // Map backend fields to frontend model
+            const mapped = data.map((item: any) => ({
+                id: item.id,
+                title: item.content ? (item.content.length > 30 ? item.content.substring(0, 30) + '...' : item.content) : `Entry ${item.type}`,
+                type: item.type === 'note' ? 'Text' : (item.type.charAt(0).toUpperCase() + item.type.slice(1)),
+                date: new Date(item.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                content: item.content || `Entry of type ${item.type}`
+            }));
+            setHistory(mapped);
+        } catch (error) {
+            console.error('Failed to fetch history:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!textEntry.trim() && !imageUri && !videoUri && !audioUri) {
+            Alert.alert('Empty Entry', 'Please add some text or media before saving.');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const typeMap: any = { 'Text': 'note', 'Photo': 'photo', 'Video': 'video', 'Audio': 'audio' };
+            await api.incidents.create({
+                type: typeMap[activeTab],
+                content: textEntry,
+                file_url: imageUri || videoUri || audioUri // Simplified for demo
+            });
+
+            Alert.alert('Success', 'Entry saved to your secure vault.');
+            setTextEntry('');
+            setImageUri(null);
+            setVideoUri(null);
+            setAudioUri(null);
+            fetchHistory();
+        } catch (error) {
+            console.error('Failed to save entry:', error);
+            Alert.alert('Error', 'Failed to save entry to server.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handleMediaPress = () => {
         if (activeTab === 'Audio') {
@@ -314,9 +368,19 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                     <View style={styles.contentArea}>
                         {renderTabContent()}
                         <View style={{ alignItems: 'flex-end', marginTop: 15 }}>
-                            <TouchableOpacity style={styles.saveButton}>
-                                <Ionicons name="save-outline" size={16} color="#FFF" />
-                                <Text style={styles.saveText}>Save Entry</Text>
+                            <TouchableOpacity
+                                style={[styles.saveButton, saving && { opacity: 0.7 }]}
+                                onPress={handleSave}
+                                disabled={saving}
+                            >
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#FFF" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="save-outline" size={16} color="#FFF" />
+                                        <Text style={styles.saveText}>Save Entry</Text>
+                                    </>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -325,7 +389,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                     <View style={[styles.historySection, { flex: 1 }]}>
                         <Text style={styles.historySectionTitle}>Recent Entries</Text>
                         <FlatList
-                            data={MOCK_JOURNAL_HISTORY}
+                            data={history}
                             keyExtractor={item => item.id}
                             renderItem={renderHistoryItem}
                             showsVerticalScrollIndicator={false}

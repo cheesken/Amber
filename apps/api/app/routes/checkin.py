@@ -134,9 +134,9 @@ async def add_contact(user_id: str, contact: ContactCreate):
     result = sb.table("emergency_contacts").insert(data).execute()
     return result.data[0]
 
-@router.delete("/contacts/{contact_id}")
-async def delete_contact(contact_id: str):
+@router.delete("/contacts/{user_id}/{contact_id}")
+async def delete_contact(user_id: str, contact_id: str):
     """Delete an emergency contact."""
     sb = _get_supabase()
-    sb.table("emergency_contacts").delete().eq("id", contact_id).execute()
+    sb.table("emergency_contacts").delete().eq("id", contact_id).eq("user_id", user_id).execute()
     return {"status": "deleted"}

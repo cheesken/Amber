@@ -12,6 +12,9 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+from functools import lru_cache
+
+@lru_cache()
 def _get_supabase():
     from supabase import create_client
 
@@ -119,22 +122,23 @@ def _extract_metadata(file_bytes: bytes, file_name: str, content_type: str) -> d
 
 
 def _create_user_if_not_exists(user_id: str) -> None:
-    """Create user if it doesn't exist."""
-    logger.info(f"Attempting to create user: {user_id}")
+    """Idempotently ensure a user exists in the database using upsert."""
     sb = _get_supabase()
     try:
-        # Create user with required fields according to schema
+        # Define user data according to schema requirements
         user_data = {
             "id": user_id,
             "username": f"test-user-{user_id[:8]}",
-            "password_hash": "test-hash-12345",  # Required field
-            "timer_duration": 300  # Required field (5 minutes default)
+            "password_hash": "test-hash-12345",  # Placeholder required field
+            "timer_duration": 300  # Default 5 minute timer
         }
-        result = sb.table("users").insert(user_data).execute()
-        logger.info(f"Successfully created user: {user_id}, result: {result.data}")
+        # Use upsert to prevent 409 Conflict logs if the user already exists
+        # on_conflict='id' ensures we target the primary key
+        result = sb.table("users").upsert(user_data, on_conflict="id").execute()
+        logger.debug(f"User provisioning check complete for: {user_id}")
     except Exception as e:
-        logger.error(f"Failed to create user {user_id}: {e}")
-        # Don't raise - let the original error propagate
+        # We log and swallow to ensure main flow continues even if provisioning logic hits an edge case
+        logger.warning(f"Note: User provisioning check for {user_id} produced: {e}")
 
 
 def _create_incident_row(

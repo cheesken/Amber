@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -11,9 +11,11 @@ import {
     Modal,
     TextInput,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../lib/api';
 
 const { width } = Dimensions.get('window');
 
@@ -31,15 +33,14 @@ const FREQUENCIES = [
     { id: '14days', label: '14 Days' },
 ];
 
-const INITIAL_CONTACTS: Contact[] = [
-    { id: '1', name: 'Eugene', role: 'FRIEND', phone: '123456789' },
-];
+
 
 export const CheckInScreen: React.FC = () => {
     const [isEnabled, setIsEnabled] = useState(true);
     const [isCardExpanded, setIsCardExpanded] = useState(true);
     const [selectedFrequency, setSelectedFrequency] = useState('daily');
-    const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [loading, setLoading] = useState(true);
 
     // Modal State
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -47,27 +48,75 @@ export const CheckInScreen: React.FC = () => {
     const [newRole, setNewRole] = useState('');
     const [newPhone, setNewPhone] = useState('');
 
-    const toggleSwitch = () => setIsEnabled(previousState => !previousState);
-
-    const handleAddContact = () => {
-        if (!newName.trim() || !newPhone.trim()) return;
-
-        const newContact: Contact = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: newName,
-            role: newRole.toUpperCase(),
-            phone: newPhone,
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [config, contactList] = await Promise.all([
+                    api.checkin.getConfig(),
+                    api.contacts.list()
+                ]);
+                setIsEnabled(config.is_active);
+                // Map frequency_hours back to id
+                const freqMap: any = { 24: 'daily', 48: '2days', 168: '7days', 336: '14days' };
+                setSelectedFrequency(freqMap[config.frequency_hours] || 'daily');
+                setContacts(contactList);
+            } catch (error) {
+                console.error('Failed to fetch checkin data:', error);
+            } finally {
+                setLoading(false);
+            }
         };
+        fetchData();
+    }, []);
 
-        setContacts([...contacts, newContact]);
-        setIsModalVisible(false);
-        setNewName('');
-        setNewPhone('');
-        setNewRole('');
+    const toggleSwitch = async () => {
+        const newValue = !isEnabled;
+        setIsEnabled(newValue);
+        try {
+            await api.checkin.updateConfig({ is_active: newValue });
+        } catch (error) {
+            console.error('Failed to update config:', error);
+            setIsEnabled(!newValue);
+        }
     };
 
-    const deleteContact = (id: string) => {
-        setContacts(contacts.filter(c => c.id !== id));
+    const handleFrequencyChange = async (freqId: string) => {
+        setSelectedFrequency(freqId);
+        const freqHoursMap: any = { 'daily': 24, '2days': 48, '7days': 168, '14days': 336 };
+        try {
+            await api.checkin.updateConfig({ frequency_hours: freqHoursMap[freqId] });
+        } catch (error) {
+            console.error('Failed to update frequency:', error);
+        }
+    };
+
+    const handleAddContact = async () => {
+        if (!newName.trim() || !newPhone.trim()) return;
+
+        try {
+            const newContact = await api.contacts.add({
+                name: newName,
+                phone: newPhone,
+                relationship: newRole || 'Other'
+            });
+            setContacts([...contacts, newContact]);
+            setIsModalVisible(false);
+            setNewName('');
+            setNewPhone('');
+            setNewRole('');
+        } catch (error) {
+            console.error('Failed to add contact:', error);
+            Alert.alert('Error', 'Failed to add contact.');
+        }
+    };
+
+    const deleteContact = async (id: string) => {
+        try {
+            await api.contacts.delete(id);
+            setContacts(contacts.filter(c => c.id !== id));
+        } catch (error) {
+            console.error('Failed to delete contact:', error);
+        }
     };
 
     return (
@@ -125,7 +174,7 @@ export const CheckInScreen: React.FC = () => {
                                             styles.frequencyCard,
                                             selectedFrequency === freq.id && styles.activeFrequencyCard
                                         ]}
-                                        onPress={() => setSelectedFrequency(freq.id)}
+                                        onPress={() => handleFrequencyChange(freq.id)}
                                         activeOpacity={0.7}
                                     >
                                         <Text style={[

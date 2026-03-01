@@ -19,9 +19,14 @@ import { signUp, logIn } from '../lib/auth';
 interface SignUpScreenProps {
   onSignUpComplete: () => void;
   onLoginComplete: () => void;
+  initialMode?: 'signup' | 'login';
 }
 
-export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onSignUpComplete, onLoginComplete }) => {
+export const SignUpScreen: React.FC<SignUpScreenProps> = ({
+  onSignUpComplete,
+  onLoginComplete,
+  initialMode = 'signup'
+}) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,7 +36,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onSignUpComplete, on
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isLoginMode, setIsLoginMode] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(initialMode === 'login');
 
   const handleSignUp = async () => {
     if (!username.trim()) {

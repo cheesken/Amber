@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,9 +9,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    Modal
+    Modal,
+    ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../lib/api';
 
 interface UserProfile {
     firstName: string;
@@ -21,6 +23,10 @@ interface UserProfile {
     hairColor: string;
     eyeColor: string;
     race: string;
+}
+
+interface ProfileScreenProps {
+    onLogout?: () => void;
 }
 
 const INITIAL_PROFILE: UserProfile = {
@@ -33,18 +39,51 @@ const INITIAL_PROFILE: UserProfile = {
     race: '',
 };
 
-export const ProfileScreen: React.FC = () => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
     const [isEditing, setIsEditing] = useState(false);
     const [isCardExpanded, setIsCardExpanded] = useState(true);
     const [isGenderModalVisible, setIsGenderModalVisible] = useState(false);
+    const [isAboutExpanded, setIsAboutExpanded] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const genderOptions = ['Female', 'Male', 'Non-binary', 'Prefer not to say', 'Other'];
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const data = await api.profile.get();
+                setProfile(prev => ({ ...prev, ...data }));
+            } catch (error) {
+                console.error('Failed to fetch profile:', error);
+                Alert.alert('Error', 'Failed to load profile from server.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfile();
+    }, []);
 
     const updateField = (field: keyof UserProfile, value: string) => {
         setProfile((prev) => ({ ...prev, [field]: value }));
     };
 
-    const handleSave = () => {
+    const handleLogoutWithConfirm = () => {
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out? You will need your secret code to sign back in.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Log Out',
+                    style: 'destructive',
+                    onPress: () => onLogout?.()
+                }
+            ]
+        );
+    };
+
+    const handleSave = async () => {
         const trimmedAge = profile.age.trim();
         if (trimmedAge !== '') {
             if (!/^\d+$/.test(trimmedAge)) {
@@ -222,6 +261,13 @@ export const ProfileScreen: React.FC = () => {
                     </TouchableOpacity>
                 )}
 
+                {!isEditing && (
+                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutWithConfirm} activeOpacity={0.8}>
+                        <Ionicons name="log-out-outline" size={20} color="#FF3B30" style={{ marginRight: 8 }} />
+                        <Text style={styles.logoutButtonText}>Log Out</Text>
+                    </TouchableOpacity>
+                )}
+
                 {/* Bottom padding */}
                 <View style={{ height: 40 }} />
             </ScrollView>
@@ -380,6 +426,22 @@ const styles = StyleSheet.create({
     },
     saveButtonText: {
         color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+        borderWidth: 1,
+        borderColor: '#FF3B30',
+    },
+    logoutButtonText: {
+        color: '#FF3B30',
         fontSize: 16,
         fontWeight: 'bold',
     },
