@@ -6,7 +6,8 @@ Monorepo for the AMBER hackathon project.
 
 - **Mobile**: React Native (Expo SDK 54, TypeScript)
 - **Backend**: FastAPI (Python 3.11)
-- **Database**: Supabase
+- **Database**: Supabase (PostgreSQL + Storage)
+- **Storage Bucket**: Ensure a public or RLS-protected bucket named `amber-vault` exists in Supabase.
 - **Orchestration**: LangGraph + GPT-4o
 
 ## Prerequisites

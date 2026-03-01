@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback, ActivityIndicator, AppState, Image, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback, ActivityIndicator, AppState, Image, ScrollView, Alert } from 'react-native';
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio, Video, ResizeMode, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import JournalScreen from './JournalScreen';
 import { NavBar, TabId } from '../components/NavBar';
 import { ProfileScreen } from './ProfileScreen';
@@ -16,6 +17,88 @@ interface VaultScreenProps {
 
 // Dummy evidence (fallback)
 const EVIDENCE_ITEMS: any[] = [];
+
+const AudioPlayer = ({ uri }: { uri: string }) => {
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    async function playSound() {
+        try {
+            // CRITICAL: Set allowsRecordingIOS to false to ensure audio routes to the main speaker, not the earpiece.
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                playsInSilentModeIOS: true,
+                interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+                shouldDuckAndroid: true,
+                interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+                playThroughEarpieceAndroid: false,
+                staysActiveInBackground: false,
+            });
+
+            if (sound) {
+                await sound.setVolumeAsync(1.0);
+                await sound.playAsync();
+                setIsPlaying(true);
+                return;
+            }
+
+            setLoading(true);
+            const { sound: newSound } = await Audio.Sound.createAsync(
+                { uri },
+                { shouldPlay: true, volume: 1.0 }
+            );
+            setSound(newSound);
+            setIsPlaying(true);
+            newSound.setOnPlaybackStatusUpdate((status: any) => {
+                if (status.didJustFinish) {
+                    setIsPlaying(false);
+                    newSound.setPositionAsync(0);
+                    newSound.pauseAsync();
+                }
+            });
+        } catch (error) {
+            console.error('Error loading sound', error);
+            Alert.alert('Error', 'Failed to load audio.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function pauseSound() {
+        if (sound) {
+            await sound.pauseAsync();
+            setIsPlaying(false);
+        }
+    }
+
+    useEffect(() => {
+        return sound
+            ? () => {
+                sound.unloadAsync();
+            }
+            : undefined;
+    }, [sound]);
+
+    return (
+        <View style={{ width: '100%', height: '100%', backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }}>
+            <TouchableOpacity
+                onPress={isPlaying ? pauseSound : playSound}
+                disabled={loading}
+                style={{ alignItems: 'center' }}
+            >
+                {loading ? (
+                    <ActivityIndicator color="#4CAF50" />
+                ) : (
+                    <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={64} color="#4CAF50" />
+                )}
+                <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>
+                    {isPlaying ? 'Playing...' : 'Tap to Play'}
+                </Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
 
 export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
     const [currentView, setCurrentView] = useState<'evidence' | 'journal'>('journal');
@@ -363,19 +446,23 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
 
                                 {selectedEntry?.type === 'Video' && selectedEntry.file_url && (
                                     <View style={styles.modalMediaContainer}>
-                                        <View style={[styles.detailMediaImage, { backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }]}>
-                                            <Ionicons name="play-circle" size={48} color="#FFF" />
-                                            <Text style={{ color: '#FFF', marginTop: 8 }}>Video Entry</Text>
-                                        </View>
+                                        <Video
+                                            source={{ uri: selectedEntry.file_url }}
+                                            rate={1.0}
+                                            volume={1.0}
+                                            isMuted={false}
+                                            resizeMode={ResizeMode.CONTAIN}
+                                            shouldPlay={false}
+                                            isLooping={false}
+                                            useNativeControls
+                                            style={styles.detailMediaImage}
+                                        />
                                     </View>
                                 )}
 
                                 {selectedEntry?.type === 'Audio' && selectedEntry.file_url && (
                                     <View style={styles.modalMediaContainer}>
-                                        <View style={[styles.detailMediaImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
-                                            <Ionicons name="musical-notes" size={48} color="#4CAF50" />
-                                            <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>Voice Recording</Text>
-                                        </View>
+                                        <AudioPlayer uri={selectedEntry.file_url} />
                                     </View>
                                 )}
 

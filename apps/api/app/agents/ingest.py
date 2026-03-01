@@ -43,26 +43,30 @@ def ingest_node(state: IngestState) -> IngestState:
         file_bytes: bytes = state["file_bytes"]
         file_name: str = state.get("file_name", "upload")
 
+        # Generate incident_id first so we can use it for storage path
+        incident_id = str(uuid.uuid4())
+
         # SHA-256 hash
         file_hash = hashlib.sha256(file_bytes).hexdigest()
 
         # Upload to Supabase Storage
-        file_url = _upload_to_storage(user_id, file_name, file_bytes, content_type)
+        file_url = _upload_to_storage(user_id, incident_id, file_name, file_bytes, content_type)
 
         # Extract basic metadata (EXIF / GPS handled here as best-effort)
         metadata = _extract_metadata(file_bytes, file_name, content_type)
 
         # Create incident row
-        incident_id = _create_incident_row(
+        _create_incident_row(
             user_id=user_id,
             content_type=content_type,
             text_content=state.get("text_content"),
             file_url=file_url,
             file_hash=file_hash,
             metadata=metadata,
+            id=incident_id
         )
 
-        logger.info("Ingest complete: incident=%s hash=%s", incident_id, file_hash[:12])
+        logger.info("Ingest complete: incident=%s hash=%s size=%d bytes", incident_id, file_hash[:12], len(file_bytes))
         return {
             **state,
             "incident_id": incident_id,
@@ -76,17 +80,40 @@ def ingest_node(state: IngestState) -> IngestState:
         return {**state, "error": str(exc)}
 
 
-def _upload_to_storage(user_id: str, file_name: str, file_bytes: bytes, content_type: str) -> str:
+def _upload_to_storage(user_id: str, incident_id: str, file_name: str, file_bytes: bytes, content_type: str) -> str:
     sb = _get_supabase()
-    bucket = "evidence"
-    path = f"{user_id}/{uuid.uuid4().hex}_{file_name}"
+    bucket = "amber_vault"
+    
+    # Get extension from filename
+    import os
+    _, ext = os.path.splitext(file_name)
+    if not ext:
+        ext_map = {"photo": ".jpg", "video": ".mp4", "audio": ".m4a"}
+        ext = ext_map.get(content_type, ".bin")
+    
+    # Path: {type}s/{user_id}/{incident_id}.{ext}
+    path = f"{content_type}s/{user_id}/{incident_id}{ext}"
 
+    # Determine MIME type based on extension or content type
     mime_map = {
-        "photo": "image/jpeg",
-        "video": "video/mp4",
-        "audio": "audio/mpeg",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".mp4": "video/mp4",
+        ".mov": "video/quicktime",
+        ".m4a": "audio/x-m4a",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
     }
-    mime = mime_map.get(content_type, "application/octet-stream")
+    mime = mime_map.get(ext.lower(), "application/octet-stream")
+    if mime == "application/octet-stream":
+        # Fallback to content_type if extension unknown
+        mime_fallback = {
+            "photo": "image/jpeg",
+            "video": "video/mp4",
+            "audio": "audio/mpeg",
+        }
+        mime = mime_fallback.get(content_type, "application/octet-stream")
 
     sb.storage.from_(bucket).upload(path, file_bytes, {"content-type": mime})
     public_url = sb.storage.from_(bucket).get_public_url(path)
@@ -150,7 +177,8 @@ def _create_incident_row(
     text_content: str | None = None,
     file_url: str | None = None,
     file_hash: str | None = None,
-    metadata: Dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+    id: str | None = None,
 ) -> str:
     """Create the incident row in Supabase."""
     sb = _get_supabase()
@@ -166,8 +194,9 @@ def _create_incident_row(
         "file_hash": file_hash,
         "content": text_content,  # Schema uses 'content', not 'text_content'
         "metadata": metadata or {},
-        # Note: uploaded_at has DEFAULT now(), timestamp doesn't exist
     }
+    if id:
+        row["id"] = id
     
     result = sb.table("incidents").insert(row).execute()
     return result.data[0]["id"]

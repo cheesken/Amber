@@ -17,12 +17,19 @@ const getUserId = async (): Promise<string> => {
 
 // Helper for making API requests
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+    const isFormData = options.body instanceof FormData;
+
+    const headers: Record<string, string> = {
+        ...options.headers as Record<string, string>,
+    };
+
+    if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
+
     const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        },
+        headers,
     });
     if (!response.ok) {
         const error = await response.text();
@@ -131,7 +138,7 @@ export const api = {
             const userId = await getUserId();
             return apiFetch(`/incidents/${userId}`, {
                 method: 'POST',
-                body: JSON.stringify(data),
+                body: data instanceof FormData ? data : JSON.stringify(data),
             });
         },
         delete: async (incidentId: string) => {

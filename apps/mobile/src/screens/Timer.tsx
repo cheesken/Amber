@@ -36,7 +36,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({
   showInstructionOverlay = false,
 }) => {
   const [hours, setHours] = useState(0);
-  const [minutes, setMinutes] = useState(10);
+  const [minutes, setMinutes] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -266,7 +266,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({
           <View style={styles.pickerRow}>
             <WheelColumn data={HOURS} initialIndex={0} onIndexChange={setHours} />
             <Text style={styles.pickerSep}>:</Text>
-            <WheelColumn data={MINS} initialIndex={10} onIndexChange={setMinutes} />
+            <WheelColumn data={MINS} initialIndex={0} onIndexChange={setMinutes} />
             <Text style={styles.pickerSep}>:</Text>
             <WheelColumn data={SECS} initialIndex={0} onIndexChange={setSeconds} />
           </View>

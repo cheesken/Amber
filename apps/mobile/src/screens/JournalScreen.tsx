@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAr
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
+import { Audio, Video, ResizeMode, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import * as DocumentPicker from 'expo-document-picker';
 
 type TabType = 'Text' | 'Photo' | 'Video' | 'Audio';
@@ -16,6 +16,88 @@ interface JournalScreenProps {
 const MOCK_JOURNAL_HISTORY = [
     { id: '1', title: 'Suspicious Car License', type: 'Text', date: 'Oct 24, 2026', content: 'Saw a dark sedan parked outside for three hours. License plate started with XYZ.' },
 ];
+
+const AudioPlayer = ({ uri }: { uri: string }) => {
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    async function playSound() {
+        try {
+            // CRITICAL: Set allowsRecordingIOS to false to ensure audio routes to the main speaker, not the earpiece.
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                playsInSilentModeIOS: true,
+                interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+                shouldDuckAndroid: true,
+                interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+                playThroughEarpieceAndroid: false,
+                staysActiveInBackground: false,
+            });
+
+            if (sound) {
+                await sound.setVolumeAsync(1.0);
+                await sound.playAsync();
+                setIsPlaying(true);
+                return;
+            }
+
+            setLoading(true);
+            const { sound: newSound } = await Audio.Sound.createAsync(
+                { uri },
+                { shouldPlay: true, volume: 1.0 }
+            );
+            setSound(newSound);
+            setIsPlaying(true);
+            newSound.setOnPlaybackStatusUpdate((status: any) => {
+                if (status.didJustFinish) {
+                    setIsPlaying(false);
+                    newSound.setPositionAsync(0);
+                    newSound.pauseAsync();
+                }
+            });
+        } catch (error) {
+            console.error('Error loading sound', error);
+            Alert.alert('Error', 'Failed to load audio.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function pauseSound() {
+        if (sound) {
+            await sound.pauseAsync();
+            setIsPlaying(false);
+        }
+    }
+
+    useEffect(() => {
+        return sound
+            ? () => {
+                sound.unloadAsync();
+            }
+            : undefined;
+    }, [sound]);
+
+    return (
+        <View style={[styles.detailImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
+            <TouchableOpacity
+                onPress={isPlaying ? pauseSound : playSound}
+                disabled={loading}
+                style={{ alignItems: 'center' }}
+            >
+                {loading ? (
+                    <ActivityIndicator color="#4CAF50" />
+                ) : (
+                    <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={64} color="#4CAF50" />
+                )}
+                <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>
+                    {isPlaying ? 'Playing...' : 'Tap to Play'}
+                </Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
 
 export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
     const [activeTab, setActiveTab] = useState<TabType>('Text');
@@ -33,6 +115,16 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
 
     useEffect(() => {
         fetchHistory();
+        // Initialize audio mode
+        Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+            interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+            shouldDuckAndroid: true,
+            interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+            playThroughEarpieceAndroid: false,
+            staysActiveInBackground: false,
+        }).catch(err => console.log('Audio init failed', err));
     }, []);
 
     const fetchHistory = async () => {
@@ -64,11 +156,35 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
         setSaving(true);
         try {
             const typeMap: any = { 'Text': 'note', 'Photo': 'photo', 'Video': 'video', 'Audio': 'audio' };
-            await api.incidents.create({
-                type: typeMap[activeTab],
-                content: textEntry,
-                file_url: imageUri || videoUri || audioUri // Simplified for demo
-            });
+            const incidentType = typeMap[activeTab];
+
+            const formData = new FormData();
+            formData.append('type', incidentType);
+            if (textEntry.trim()) {
+                formData.append('content', textEntry);
+            }
+
+            const mediaUri = imageUri || videoUri || audioUri;
+            if (mediaUri) {
+                // Extract filename and mime type
+                const filename = mediaUri.split('/').pop() || 'upload';
+
+                let mimeType = 'application/octet-stream';
+                if (incidentType === 'photo') mimeType = 'image/jpeg';
+                else if (incidentType === 'video') mimeType = 'video/mp4';
+                else if (incidentType === 'audio') {
+                    // Expo iOS recordings are typically .m4a
+                    mimeType = filename.endsWith('.m4a') ? 'audio/x-m4a' : 'audio/mpeg';
+                }
+
+                formData.append('file', {
+                    uri: mediaUri,
+                    name: filename,
+                    type: mimeType
+                } as any);
+            }
+
+            await api.incidents.create(formData);
 
             Alert.alert('Success', 'Entry submitted to your secure vault.');
             setTextEntry('');
@@ -253,15 +369,17 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                             </View>
                         ) : (activeTab === 'Audio' && audioUri) ? (
                             <View style={styles.imagePreviewContainer}>
-                                <View style={[styles.previewImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Ionicons name="musical-notes" size={64} color="#4CAF50" />
-                                    <Text style={{ marginTop: 10, color: '#4CAF50', fontWeight: 'bold' }}>Audio Saved</Text>
+                                <View style={[styles.previewImage, { backgroundColor: '#E8F5E9', padding: 10 }]}>
+                                    <AudioPlayer uri={audioUri} />
+                                    <View style={{ alignItems: 'center', marginTop: -20 }}>
+                                        <Text style={{ color: '#4CAF50', fontWeight: 'bold' }}>Recording Ready</Text>
+                                    </View>
                                 </View>
                                 <TouchableOpacity
                                     style={styles.removeImageButton}
                                     onPress={() => setAudioUri(null)}
                                 >
-                                    <Ionicons name="close-circle" size={24} color="#333" />
+                                    <Ionicons name="close-circle" size={24} color="#FF5252" />
                                 </TouchableOpacity>
                             </View>
                         ) : (
@@ -441,19 +559,23 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
 
                             {selectedEntry?.type === 'Video' && selectedEntry.file_url && (
                                 <View style={styles.modalMediaContainer}>
-                                    <View style={[styles.detailImage, { backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }]}>
-                                        <Ionicons name="play-circle" size={48} color="#FFF" />
-                                        <Text style={{ color: '#FFF', marginTop: 8 }}>Video Entry</Text>
-                                    </View>
+                                    <Video
+                                        source={{ uri: selectedEntry.file_url }}
+                                        rate={1.0}
+                                        volume={1.0}
+                                        isMuted={false}
+                                        resizeMode={ResizeMode.CONTAIN}
+                                        shouldPlay={false}
+                                        isLooping={false}
+                                        useNativeControls
+                                        style={styles.detailImage}
+                                    />
                                 </View>
                             )}
 
                             {selectedEntry?.type === 'Audio' && selectedEntry.file_url && (
                                 <View style={styles.modalMediaContainer}>
-                                    <View style={[styles.detailImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
-                                        <Ionicons name="musical-notes" size={48} color="#4CAF50" />
-                                        <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>Voice Recording</Text>
-                                    </View>
+                                    <AudioPlayer uri={selectedEntry.file_url} />
                                 </View>
                             )}
 
