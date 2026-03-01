@@ -232,25 +232,38 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
         );
     };
 
-    const renderHistoryItem = ({ item }: { item: any }) => (
-        <TouchableOpacity style={styles.historyItem} onPress={() => setSelectedEntry(item)}>
-            <View style={styles.historyIconContainer}>
-                <Ionicons
-                    name={
-                        item.type === 'Photo' ? 'image-outline' :
-                            item.type === 'Audio' ? 'mic-outline' : 'document-text-outline'
-                    }
-                    size={20}
-                    color="#FA782F"
-                />
-            </View>
-            <View style={styles.historyTextContainer}>
-                <Text style={styles.historyTitle}>{item.title}</Text>
-                <Text style={styles.historyDate}>{item.date}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#999" />
-        </TouchableOpacity>
-    );
+    const getCategoryColors = (type: string) => {
+        switch (type) {
+            case 'Photo': return { color: '#4CAF50', bg: '#E8F5E9' };
+            case 'Video': return { color: '#9C27B0', bg: '#F3E5F5' };
+            case 'Audio': return { color: '#FF9800', bg: '#FFF3E0' };
+            case 'Text': default: return { color: '#2196F3', bg: '#E3F2FD' };
+        }
+    };
+
+    const renderHistoryItem = ({ item }: { item: any }) => {
+        const { color, bg } = getCategoryColors(item.type);
+        return (
+            <TouchableOpacity style={styles.historyItem} onPress={() => setSelectedEntry(item)}>
+                <View style={[styles.historyIconContainer, { backgroundColor: bg }]}>
+                    <Ionicons
+                        name={
+                            item.type === 'Photo' ? 'image-outline' :
+                                item.type === 'Video' ? 'videocam-outline' :
+                                    item.type === 'Audio' ? 'mic-outline' : 'document-text-outline'
+                        }
+                        size={20}
+                        color={color}
+                    />
+                </View>
+                <View style={styles.historyTextContainer}>
+                    <Text style={styles.historyTitle}>{item.title}</Text>
+                    <Text style={styles.historyDate}>{item.date}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#999" />
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <View style={styles.safeArea}>
@@ -339,17 +352,18 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                         </View>
                         <ScrollView style={styles.modalBody}>
                             <View style={styles.detailBadgeRow}>
-                                <View style={styles.detailBadge}>
+                                <View style={[styles.detailBadge, { backgroundColor: selectedEntry ? getCategoryColors(selectedEntry.type).bg : '#FFF9E6' }]}>
                                     <Ionicons
                                         name={
                                             selectedEntry?.type === 'Photo' ? 'image-outline' :
-                                                selectedEntry?.type === 'Audio' ? 'mic-outline' : 'document-text-outline'
+                                                selectedEntry?.type === 'Video' ? 'videocam-outline' :
+                                                    selectedEntry?.type === 'Audio' ? 'mic-outline' : 'document-text-outline'
                                         }
                                         size={14}
-                                        color="#FA782F"
+                                        color={selectedEntry ? getCategoryColors(selectedEntry.type).color : '#FA782F'}
                                         style={{ marginRight: 4 }}
                                     />
-                                    <Text style={styles.detailBadgeText}>{selectedEntry?.type}</Text>
+                                    <Text style={[styles.detailBadgeText, { color: selectedEntry ? getCategoryColors(selectedEntry.type).color : '#FA782F' }]}>{selectedEntry?.type}</Text>
                                 </View>
                                 <Text style={styles.detailDate}>{selectedEntry?.date}</Text>
                             </View>
@@ -548,7 +562,6 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#FFF9E6',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
@@ -604,7 +617,6 @@ const styles = StyleSheet.create({
     detailBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFF9E6',
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 12,
@@ -613,7 +625,6 @@ const styles = StyleSheet.create({
     detailBadgeText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#FA782F',
     },
     detailDate: {
         fontSize: 13,
