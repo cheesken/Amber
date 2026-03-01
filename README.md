@@ -1,8 +1,8 @@
-# AMBER
+# Amber
 
-Monorepo for the AMBER hackathon project.
+Monorepo for the Amber hackathon project.
 
-## Stack (source of truth: `PROJECT_REFERENCE.md`)
+## Stack
 
 - **Mobile**: React Native (Expo SDK 54, TypeScript)
 - **Backend**: FastAPI (Python 3.11)
