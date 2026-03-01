@@ -270,16 +270,16 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FAFAFA',
     },
     contentContainer: {
-        padding: 24,
+        padding: 16,
     },
     mainCard: {
         backgroundColor: '#FFF9E6', // Amber theme soft yellow
         borderRadius: 24,
-        padding: 20,
-        marginBottom: 32,
+        padding: 16,
+        marginBottom: 16,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     section: {
-        marginBottom: 24,
+        marginBottom: 16,
     },
     sectionTitle: {
         fontSize: 18,
