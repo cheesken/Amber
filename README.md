@@ -1,7 +1,62 @@
-# Amber
+<p align="center">
+  <img src="pics/logo.png" alt="AMBER Logo" width="200"/>
+</p>
 
-Monorepo for the Amber hackathon project.
+<h1 align="center">AMBER</h1>
 
+<p align="center">
+  A DV evidence collection app disguised as a meditation timer.<br/>
+  Built at <strong>Hack for Humanity 2026</strong> — Santa Clara University.
+</p>
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <img src="pics/signup.png" width="180"/><br/>
+      <strong>Sign Up Page</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="pics/moreinfo.png" width="180"/><br/>
+      <strong>We collect more User Info.</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="pics/signin.png" width="180"/><br/>
+      <strong>Sign In Page</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="pics/timer.png" width="180"/><br/>
+      <strong>What the app opens to once you are signed in</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="25%">
+      <img src="pics/vault.png" width="180"/><br/>
+      <strong>Vault Tab</strong><br/>
+      Securely store evidence. Everything is encrypted and hashed with metadata (GPS, timestamps) preserved for legal use.
+    </td>
+    <td align="center" width="25%">
+      <img src="pics/agent.png" width="180"/><br/>
+      <strong>Agent Tab</strong><br/>
+      Set up automated calls to your trusted contacts.
+    </td>
+    <td align="center" width="25%">
+      <img src="pics/checkin.png" width="180"/><br/>
+      <strong>Check-In Tab</strong><br/>
+      Dead man's switch. Set a check-in frequency. If you miss one, tiered escalation kicks in.
+    </td>
+    <td align="center" width="25%">
+      <img src="pics/profile.png" width="180"/><br/>
+      <strong>Profile Tab</strong><br/>
+      Can be edited if user changes their appearance.
+    </td>
+  </tr>
+</table>
+
+---
 ## Stack
 
 - **Mobile**: React Native (Expo SDK 54, TypeScript)
@@ -78,4 +133,3 @@ npx expo start --android
 - **"Opening project..." hang**: Always use `npx expo start --tunnel` if you are on a public/corporate Wi-Fi.
 - **Python not found**: Ensure you are using `python3` and that your `venv` is activated.
 - **Expo Go version error**: This project is pinned to SDK 54 for maximum compatibility. If Expo Go suggests an update, ensure you are running the `npx expo start --tunnel` command.
-
