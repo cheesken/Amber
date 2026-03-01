@@ -5,7 +5,7 @@ CREATE TABLE users (
     timer_duration  INTEGER NOT NULL,       -- seconds (scroll picker value = fake password)
     first_name      TEXT,
     last_name       TEXT,
-    gender          TEXT,
+    gender          ENUM('male', 'female', 'non-binary', 'prefer not to say', 'other'),
     age             INTEGER,
     photo_url       TEXT,                   -- stored in Supabase Storage
     hair_color      TEXT,
