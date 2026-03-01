@@ -37,6 +37,12 @@ npm run api:run
 AMBER_RUN_API_INTEGRATION=1 PYTHONPATH=apps/api python3 scripts/test_agents.py
 ```
 
+To get more descriptive output (incident IDs, file URLs, report PDF URL), enable verbose mode:
+
+```bash
+AMBER_RUN_API_INTEGRATION=1 AMBER_TEST_VERBOSE=1 PYTHONPATH=apps/api python3 scripts/test_agents.py
+```
+
 Integration tests will:
 
 - Call `GET /health`
@@ -53,6 +59,20 @@ Integration tests will:
 - `AMBER_TEST_USER_ID`
   - Optional.
   - If not provided, integration tests generate a fresh UUID user per run.
+
+- `AMBER_TEST_VERBOSE`
+  - Optional.
+  - Set to `1` to print useful debug output during integration tests:
+    - which `user_id` was used
+    - created `incident_id`s
+    - uploaded `file_url`s
+    - generated `report_id` and `pdf_url`
+
+## Scenario test: “strong case”
+
+The integration suite includes a scenario test that seeds **10 incidents** (notes + photo uploads)
+for a single fresh user and then generates a report. This is useful when you want a richer PDF
+to manually inspect for formatting issues.
 
 ## Troubleshooting
 
