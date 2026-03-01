@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../lib/api';
 
 interface TranscriptMsg {
     speaker: 'AI Agent' | string;
@@ -15,23 +16,7 @@ interface CallHistoryItem {
     transcript: TranscriptMsg[];
 }
 
-const MOCK_HISTORY: CallHistoryItem[] = [
-    {
-        id: '1',
-        contactName: 'Eugene',
-        date: '2/28/2026, 6:11:03 PM',
-        duration: '2:25',
-        transcript: [
-            { speaker: 'AI Agent', text: "Hello, this is the Amber AI Assistant calling on behalf of your friend. They have requested that I share an update regarding a situation they are currently documenting." },
-            { speaker: 'Eugene', text: "Oh, hi. Is everything okay? What's going on?" },
-            { speaker: 'AI Agent', text: "They are currently safe, but they wanted you to be aware of a recent incident. According to their journal, there was an escalation earlier today involving verbal threats and broken property in the kitchen." },
-            { speaker: 'Eugene', text: "That's terrible. Do they need me to come over or call the police?" },
-            { speaker: 'AI Agent', text: "They have not requested police intervention at this time. They are using this app to securely document the pattern of behavior. They mostly wanted to ensure a trusted friend knew what was happening in case the situation worsens." },
-            { speaker: 'Eugene', text: "Okay, understood. I'll send them a text right now to check in. Thank you for letting me know." },
-            { speaker: 'AI Agent', text: "You are welcome. They have also selected you as a Tier 2 emergency contact, meaning you will be notified if they miss a scheduled safety check-in. Goodbye." }
-        ]
-    }
-];
+const MOCK_HISTORY: CallHistoryItem[] = [];
 
 interface Contact {
     id: string;
@@ -40,12 +25,7 @@ interface Contact {
     phone: string;
 }
 
-// Temporary dummy contacts until global state is implemented
-const DUMMY_CONTACTS: Contact[] = [
-    { id: '1', name: 'Eugene', role: 'FRIEND', phone: '123-456-7890' },
-    { id: '2', name: 'Sarah', role: 'SISTER', phone: '098-765-4321' },
-    { id: '3', name: 'Atty. Smith', role: 'LAWYER', phone: '555-555-5555' },
-];
+// Removed DUMMY_CONTACTS and will use state instead
 
 export const AgentScreen: React.FC = () => {
 
@@ -59,7 +39,55 @@ export const AgentScreen: React.FC = () => {
 
     // Using state for history so new calls can be added dynamically
     const [history, setHistory] = useState<CallHistoryItem[]>(MOCK_HISTORY);
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [loadingContacts, setLoadingContacts] = useState(true);
+    const [loadingHistory, setLoadingHistory] = useState(true);
     const [isCardExpanded, setIsCardExpanded] = useState(true);
+
+    useEffect(() => {
+        fetchContacts();
+        fetchHistory();
+    }, []);
+
+    const fetchContacts = async () => {
+        try {
+            const data = await api.contacts.list();
+            const mappedContacts = data.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                role: c.relationship || 'Contact',
+                phone: c.phone
+            }));
+            setContacts(mappedContacts);
+        } catch (error) {
+            console.error('Failed to fetch contacts for Agent Screen:', error);
+        } finally {
+            setLoadingContacts(false);
+        }
+    };
+
+    const fetchHistory = async () => {
+        try {
+            const data = await api.agent.calls.list();
+            const mappedHistory: CallHistoryItem[] = data.map((item: any) => ({
+                id: item.id,
+                contactName: item.contact_name,
+                date: new Date(item.created_at).toLocaleString([], {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+                duration: item.duration,
+                transcript: item.transcript
+            }));
+            setHistory(mappedHistory);
+        } catch (error) {
+            console.error('Failed to fetch call history:', error);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
 
     const handleCallAgent = () => {
         if (activeCallTargets.length > 0) return; // Prevent opening if already calling
@@ -80,7 +108,7 @@ export const AgentScreen: React.FC = () => {
         if (selectedContacts.size === 0) return;
 
         // Get names of the selected contacts for the progress UI
-        const contactNames = DUMMY_CONTACTS
+        const contactNames = contacts
             .filter(c => selectedContacts.has(c.id))
             .map(c => c.name);
 
@@ -89,21 +117,30 @@ export const AgentScreen: React.FC = () => {
         setSelectedContacts(new Set());
 
         // Simulate a 5-second call, then end and add to history
-        setTimeout(() => {
-            const newHistoryItems: CallHistoryItem[] = contactNames.map(name => ({
-                id: Math.random().toString(),
-                contactName: name,
-                date: new Date().toLocaleString(),
-                duration: '0:05',
-                transcript: [
-                    { speaker: 'AI Agent', text: "Hello, this is the Amber AI Assistant calling to share a journal summary..." },
-                    { speaker: name, text: "I understand. I will keep an eye out." }
-                ]
-            }));
+        setTimeout(async () => {
+            const selectedContactObjects = contacts.filter(c => selectedContacts.has(c.id));
 
-            setHistory(prev => [...newHistoryItems, ...prev]);
+            for (const contact of selectedContactObjects) {
+                const callPayload = {
+                    contact_id: contact.id,
+                    contact_name: contact.name,
+                    duration: '0:05',
+                    transcript: [
+                        { speaker: 'AI Agent', text: `Hello, this is the Amber AI Assistant calling to share a journal summary with ${contact.name}...` },
+                        { speaker: contact.name, text: "I understand. I will keep an eye out." }
+                    ]
+                };
+
+                try {
+                    await api.agent.calls.create(callPayload);
+                } catch (e) {
+                    console.error('Failed to save call record:', e);
+                }
+            }
+
+            // Refresh history from server after all calls are saved
+            fetchHistory();
             setActiveCallTargets([]); // End the call
-
         }, 5000);
     };
 
@@ -182,34 +219,40 @@ export const AgentScreen: React.FC = () => {
                 </View>
 
                 <ScrollView style={styles.historyList} contentContainerStyle={styles.historyListContent}>
-                    {history.map((item, index) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={[
-                                styles.historyItem,
-                                index === history.length - 1 && styles.lastHistoryItem
-                            ]}
-                            onPress={() => {
-                                setSelectedCall(item);
-                                setIsPlaying(false);
-                            }}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.historyItemLeft}>
-                                <View style={styles.historyIconContainer}>
-                                    <Ionicons name="call-outline" size={20} color="#FA782F" />
+                    {loadingHistory ? (
+                        <ActivityIndicator size="large" color="#FA782F" style={{ marginTop: 20 }} />
+                    ) : history.length === 0 ? (
+                        <Text style={styles.emptyHistoryText}>No past calls recorded.</Text>
+                    ) : (
+                        history.map((item, index) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={[
+                                    styles.historyItem,
+                                    index === history.length - 1 && styles.lastHistoryItem
+                                ]}
+                                onPress={() => {
+                                    setSelectedCall(item);
+                                    setIsPlaying(false);
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.historyItemLeft}>
+                                    <View style={styles.historyIconContainer}>
+                                        <Ionicons name="call-outline" size={20} color="#FA782F" />
+                                    </View>
+                                    <View style={styles.historyItemTextContent}>
+                                        <Text style={styles.historyItemName}>{item.contactName}</Text>
+                                        <Text style={styles.historyItemDate}>{item.date}</Text>
+                                    </View>
                                 </View>
-                                <View style={styles.historyItemTextContent}>
-                                    <Text style={styles.historyItemName}>{item.contactName}</Text>
-                                    <Text style={styles.historyItemDate}>{item.date}</Text>
+                                <View style={styles.historyItemRight}>
+                                    <Text style={styles.historyItemDuration}>{item.duration}</Text>
+                                    <Ionicons name="chevron-forward" size={16} color="#999999" style={styles.historyItemChevron} />
                                 </View>
-                            </View>
-                            <View style={styles.historyItemRight}>
-                                <Text style={styles.historyItemDuration}>{item.duration}</Text>
-                                <Ionicons name="chevron-forward" size={16} color="#999999" style={styles.historyItemChevron} />
-                            </View>
-                        </TouchableOpacity>
-                    ))}
+                            </TouchableOpacity>
+                        ))
+                    )}
                 </ScrollView>
             </View>
 
@@ -234,32 +277,38 @@ export const AgentScreen: React.FC = () => {
                         </Text>
 
                         <ScrollView style={styles.contactsList}>
-                            {DUMMY_CONTACTS.map((contact) => (
-                                <TouchableOpacity
-                                    key={contact.id}
-                                    style={styles.contactOption}
-                                    onPress={() => toggleContactSelection(contact.id)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={styles.contactOptionInfo}>
-                                        <View style={styles.historyIconContainer}>
-                                            <Ionicons name="person-outline" size={20} color="#FA782F" />
+                            {loadingContacts ? (
+                                <ActivityIndicator size="large" color="#FA782F" style={{ marginTop: 20 }} />
+                            ) : contacts.length === 0 ? (
+                                <Text style={styles.emptyContactsText}>No trusted contacts found. Add some in the Safety Check-in tab.</Text>
+                            ) : (
+                                contacts.map((contact) => (
+                                    <TouchableOpacity
+                                        key={contact.id}
+                                        style={styles.contactOption}
+                                        onPress={() => toggleContactSelection(contact.id)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.contactOptionInfo}>
+                                            <View style={styles.historyIconContainer}>
+                                                <Ionicons name="person-outline" size={20} color="#FA782F" />
+                                            </View>
+                                            <View>
+                                                <Text style={styles.contactOptionName}>{contact.name}</Text>
+                                                <Text style={styles.contactOptionRole}>{contact.role}</Text>
+                                            </View>
                                         </View>
-                                        <View>
-                                            <Text style={styles.contactOptionName}>{contact.name}</Text>
-                                            <Text style={styles.contactOptionRole}>{contact.role}</Text>
+                                        <View style={[
+                                            styles.checkbox,
+                                            selectedContacts.has(contact.id) && styles.checkboxSelected
+                                        ]}>
+                                            {selectedContacts.has(contact.id) && (
+                                                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                                            )}
                                         </View>
-                                    </View>
-                                    <View style={[
-                                        styles.checkbox,
-                                        selectedContacts.has(contact.id) && styles.checkboxSelected
-                                    ]}>
-                                        {selectedContacts.has(contact.id) && (
-                                            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
+                                    </TouchableOpacity>
+                                ))
+                            )}
                         </ScrollView>
 
                         <TouchableOpacity
@@ -721,5 +770,18 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    emptyContactsText: {
+        textAlign: 'center',
+        color: '#999',
+        marginTop: 20,
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    emptyHistoryText: {
+        textAlign: 'center',
+        color: '#999',
+        marginTop: 40,
+        fontSize: 14,
     },
 });

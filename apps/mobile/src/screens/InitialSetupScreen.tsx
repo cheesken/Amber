@@ -10,7 +10,9 @@ import {
     Platform,
     ScrollView,
     ActivityIndicator,
-    Alert
+    Alert,
+    Modal,
+    TouchableWithoutFeedback
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
@@ -27,6 +29,15 @@ export const InitialSetupScreen: React.FC<InitialSetupScreenProps> = ({ onComple
     const [race, setRace] = useState('');
     const [hairColor, setHairColor] = useState('');
     const [eyeColor, setEyeColor] = useState('');
+    const [isGenderModalVisible, setIsGenderModalVisible] = useState(false);
+
+    const genderOptions = [
+        { label: 'Female', value: 'female' },
+        { label: 'Male', value: 'male' },
+        { label: 'Non-binary', value: 'non-binary' },
+        { label: 'Prefer not to say', value: 'prefer not to say' },
+        { label: 'Other', value: 'other' }
+    ];
 
     const [saving, setSaving] = useState(false);
 
@@ -126,13 +137,19 @@ export const InitialSetupScreen: React.FC<InitialSetupScreenProps> = ({ onComple
                             </View>
                             <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                                 <Text style={styles.inputLabel}>Gender</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={gender}
-                                    onChangeText={setGender}
-                                    placeholder="Female, Male, etc."
-                                    placeholderTextColor="#C4A882"
-                                />
+                                <TouchableOpacity
+                                    style={styles.dropdownTrigger}
+                                    onPress={() => setIsGenderModalVisible(true)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={[
+                                        styles.dropdownTriggerText,
+                                        !gender && { color: '#C4A882' }
+                                    ]}>
+                                        {gender ? genderOptions.find(o => o.value === gender)?.label : 'Select'}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={18} color="#FA782F" />
+                                </TouchableOpacity>
                             </View>
                         </View>
 
@@ -187,6 +204,44 @@ export const InitialSetupScreen: React.FC<InitialSetupScreenProps> = ({ onComple
                     <View style={{ height: 40 }} />
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Gender Selection Modal */}
+            <Modal
+                visible={isGenderModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsGenderModalVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setIsGenderModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Select Gender</Text>
+                                {genderOptions.map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={styles.modalOption}
+                                        onPress={() => {
+                                            setGender(option.value);
+                                            setIsGenderModalVisible(false);
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.modalOptionText,
+                                            gender === option.value && styles.modalOptionTextSelected
+                                        ]}>
+                                            {option.label}
+                                        </Text>
+                                        {gender === option.value && (
+                                            <Ionicons name="checkmark" size={20} color="#E8956A" />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -241,6 +296,20 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 14,
+        fontSize: 16,
+        color: '#4A3728',
+    },
+    dropdownTrigger: {
+        backgroundColor: '#F5EDE8',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: 52, // Match text input height
+    },
+    dropdownTriggerText: {
         fontSize: 16,
         color: '#4A3728',
     },

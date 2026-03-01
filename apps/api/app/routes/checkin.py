@@ -55,10 +55,12 @@ async def get_checkin_config(user_id: str):
     
     if not result.data:
         # Create default config if missing
+        now = datetime.now(timezone.utc)
         default_config = {
             "user_id": user_id,
             "frequency_hours": 24,
             "is_active": True,
+            "last_checkin_at": now.isoformat(),
             "next_due_at": _calculate_next_due(24).isoformat()
         }
         _create_user_if_not_exists(user_id)
@@ -78,8 +80,11 @@ async def update_checkin_config(user_id: str, update: CheckInConfigUpdate):
     
     update_data = update.model_dump(exclude_none=True)
     
-    # If frequency changed or re-activated, reset the timer
-    if update.frequency_hours is not None or (update.is_active is True):
+    # If frequency changed or re-activated, reset the timer. 
+    # If de-activated, clear next_due_at.
+    if update.is_active is False:
+        update_data["next_due_at"] = None
+    elif update.frequency_hours is not None or (update.is_active is True):
         update_data["next_due_at"] = _calculate_next_due(freq).isoformat()
         
     result = sb.table("checkin_config").update(update_data).eq("user_id", user_id).execute()
@@ -90,18 +95,17 @@ async def perform_checkin(user_id: str):
     """Manually check in as safe, resetting the watchdog timer."""
     sb = _get_supabase()
     
-    # Get frequency
-    config_res = sb.table("checkin_config").select("frequency_hours").eq("user_id", user_id).execute()
-    if not config_res.data:
-        raise HTTPException(status_code=404, detail="Check-in config not found")
-        
-    freq = config_res.data[0]["frequency_hours"]
+    # Ensure config exists (creates default if missing)
+    config = await get_checkin_config(user_id)
+    freq = config["frequency_hours"]
     now = datetime.now(timezone.utc)
+    
+    next_due = _calculate_next_due(freq)
     
     # Update config
     sb.table("checkin_config").update({
         "last_checkin_at": now.isoformat(),
-        "next_due_at": _calculate_next_due(freq).isoformat()
+        "next_due_at": next_due.isoformat()
     }).eq("user_id", user_id).execute()
     
     # Log the successful check-in
@@ -111,7 +115,7 @@ async def perform_checkin(user_id: str):
         "was_missed": False
     }).execute()
     
-    return {"status": "success", "next_due_at": _calculate_next_due(freq)}
+    return {"status": "success", "next_due_at": next_due.isoformat()}
 
 # --- Contact Endpoints ---
 

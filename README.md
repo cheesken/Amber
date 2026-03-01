@@ -58,7 +58,7 @@ Scan the QR code with your **Phone Camera** (iOS) or **Expo Go App** (Android).
 ### Option B: iOS Simulator
 *Requires Xcode installed.*
 ```bash
-npx expo start --ios
+npx expo start --ios -c
 ```
 
 ### Option C: Android Emulator

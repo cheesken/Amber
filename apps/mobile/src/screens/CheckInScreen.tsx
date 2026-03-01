@@ -12,7 +12,8 @@ import {
     TextInput,
     KeyboardAvoidingView,
     Platform,
-    Alert
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../lib/api';
@@ -41,6 +42,8 @@ export const CheckInScreen: React.FC = () => {
     const [selectedFrequency, setSelectedFrequency] = useState('daily');
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
+    const [lastCheckIn, setLastCheckIn] = useState<string | null>(null);
+    const [nextCheckIn, setNextCheckIn] = useState<string | null>(null);
 
     // Modal State
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -59,6 +62,8 @@ export const CheckInScreen: React.FC = () => {
                 // Map frequency_hours back to id
                 const freqMap: any = { 24: 'daily', 48: '2days', 168: '7days', 336: '14days' };
                 setSelectedFrequency(freqMap[config.frequency_hours] || 'daily');
+                setLastCheckIn(config.last_checkin_at);
+                setNextCheckIn(config.next_due_at);
                 setContacts(contactList);
             } catch (error) {
                 console.error('Failed to fetch checkin data:', error);
@@ -73,7 +78,8 @@ export const CheckInScreen: React.FC = () => {
         const newValue = !isEnabled;
         setIsEnabled(newValue);
         try {
-            await api.checkin.updateConfig({ is_active: newValue });
+            const updated = await api.checkin.updateConfig({ is_active: newValue });
+            setNextCheckIn(updated.next_due_at || null);
         } catch (error) {
             console.error('Failed to update config:', error);
             setIsEnabled(!newValue);
@@ -84,10 +90,22 @@ export const CheckInScreen: React.FC = () => {
         setSelectedFrequency(freqId);
         const freqHoursMap: any = { 'daily': 24, '2days': 48, '7days': 168, '14days': 336 };
         try {
-            await api.checkin.updateConfig({ frequency_hours: freqHoursMap[freqId] });
+            const updated = await api.checkin.updateConfig({ frequency_hours: freqHoursMap[freqId] });
+            setNextCheckIn(updated.next_due_at);
         } catch (error) {
             console.error('Failed to update frequency:', error);
         }
+    };
+
+    const formatDateTime = (isoString: string | null) => {
+        if (!isoString) return 'Never';
+        const date = new Date(isoString);
+        return date.toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     };
 
     const handleAddContact = async () => {
@@ -158,6 +176,22 @@ export const CheckInScreen: React.FC = () => {
                             value={isEnabled}
                         />
                     </View>
+
+                    {isEnabled && (
+                        <View style={styles.statusSection}>
+                            <View style={styles.statusDivider} />
+                            <View style={styles.statusRow}>
+                                <View style={styles.statusItem}>
+                                    <Text style={styles.statusLabel}>Last Check-in</Text>
+                                    <Text style={styles.statusValue}>{formatDateTime(lastCheckIn)}</Text>
+                                </View>
+                                <View style={[styles.statusItem, styles.statusSeparator]}>
+                                    <Text style={styles.statusLabel}>Next Due</Text>
+                                    <Text style={[styles.statusValue, { color: '#FA782F' }]}>{formatDateTime(nextCheckIn)}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* Check-in Frequency & Contacts (Conditional) */}
@@ -523,6 +557,56 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: '#FFFFFF',
         fontSize: 16,
+        fontWeight: 'bold',
+    },
+    statusSection: {
+        marginTop: 16,
+    },
+    statusDivider: {
+        height: 1,
+        backgroundColor: '#FFE4B5',
+        marginBottom: 16,
+    },
+    statusRow: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    statusItem: {
+        flex: 1,
+    },
+    statusSeparator: {
+        borderLeftWidth: 1,
+        borderLeftColor: '#FFE4B5',
+        paddingLeft: 16,
+    },
+    statusLabel: {
+        fontSize: 12,
+        color: '#8D6E63',
+        marginBottom: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    statusValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#5D4037',
+    },
+    checkInButton: {
+        backgroundColor: '#FA782F',
+        borderRadius: 12,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#FA782F',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    checkInButtonText: {
+        color: '#FFFFFF',
+        fontSize: 15,
         fontWeight: 'bold',
     },
 });

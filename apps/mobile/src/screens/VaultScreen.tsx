@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, FlatList, TouchableOpacity, SafeAreaView, Platform, Modal, TouchableWithoutFeedback, ActivityIndicator, AppState, Image, ScrollView } from 'react-native';
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import JournalScreen from './JournalScreen';
@@ -26,7 +26,32 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
     const [dateSort, setDateSort] = useState<'newest' | 'oldest' | 'custom_7' | 'custom_30'>('newest');
     const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'Text' | 'Photo' | 'Video' | 'Audio'>('all');
     const [evidence, setEvidence] = useState<any[]>([]);
+    const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Automatic check-in when entering the vault or app foregrounding
+        const performAutoCheckIn = async () => {
+            try {
+                await api.checkin.perform();
+                console.log('[Vault] Automatic check-in successful');
+            } catch (e) {
+                console.error('[Vault] Automatic check-in failed:', e);
+            }
+        };
+
+        performAutoCheckIn();
+
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') {
+                performAutoCheckIn();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
 
     useEffect(() => {
         if (activeTab === 'journal' && currentView === 'evidence') {
@@ -42,6 +67,8 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
                 title: item.content ? (item.content.length > 30 ? item.content.substring(0, 30) + '...' : item.content) : `Entry ${item.type}`,
                 type: item.type === 'note' ? 'Text' : (item.type.charAt(0).toUpperCase() + item.type.slice(1)),
                 date: new Date(item.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                content: item.content || `Entry of type ${item.type}`,
+                file_url: item.file_url
             }));
             setEvidence(mapped);
         } catch (error) {
@@ -105,7 +132,7 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
         });
 
         return result;
-    }, [evidenceFilter, dateSort]);
+    }, [evidence, evidenceFilter, dateSort]);
 
     // Dropdown selection handlers
     const handleDateSelect = (val: typeof dateSort) => {
@@ -142,7 +169,7 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
     const renderItem = ({ item }: { item: any }) => {
         const { color, bg } = getCategoryColors(item.type);
         return (
-            <View style={styles.evidenceItem}>
+            <TouchableOpacity style={styles.evidenceItem} onPress={() => setSelectedEntry(item)}>
                 <View style={[styles.evidenceIconContainer, { backgroundColor: bg }]}>
                     <Ionicons
                         name={
@@ -158,7 +185,8 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
                     <Text style={styles.itemTitle}>{item.title}</Text>
                     <Text style={styles.itemDate}>{item.date}</Text>
                 </View>
-            </View>
+                <Ionicons name="chevron-forward" size={16} color="#999" />
+            </TouchableOpacity>
         );
     };
 
@@ -197,9 +225,9 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
                     <View style={styles.header}>
                         <Text style={styles.title}>My Vault</Text>
                         <View style={styles.headerActions}>
-                            <TouchableOpacity onPress={() => setCurrentView('journal')} style={styles.addButton}>
-                                <Ionicons name="add" size={20} color="#FFF" />
-                                <Text style={styles.addButtonText}>New Entry</Text>
+                            <TouchableOpacity onPress={() => setCurrentView('journal')} style={styles.backButton}>
+                                <Ionicons name="arrow-back" size={20} color="#FFF" />
+                                <Text style={styles.backButtonText}>Back</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -294,6 +322,72 @@ export const VaultScreen = ({ onQuickExit, onLogout }: VaultScreenProps) => {
                     </TouchableWithoutFeedback>
                 </Modal>
 
+                {/* Detail View Modal */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={selectedEntry !== null}
+                    onRequestClose={() => setSelectedEntry(null)}
+                >
+                    <View style={styles.detailModalOverlay}>
+                        <View style={styles.detailModalContent}>
+                            <View style={styles.detailModalHeader}>
+                                <Text style={styles.detailModalTitle} numberOfLines={1}>{selectedEntry?.title}</Text>
+                                <TouchableOpacity onPress={() => setSelectedEntry(null)}>
+                                    <Ionicons name="close" size={24} color="#333" />
+                                </TouchableOpacity>
+                            </View>
+                            <ScrollView style={styles.detailModalBody}>
+                                <View style={styles.detailBadgeRow}>
+                                    <View style={[styles.detailBadge, { backgroundColor: selectedEntry ? getCategoryColors(selectedEntry.type).bg : '#FFF9E6' }]}>
+                                        <Ionicons
+                                            name={
+                                                selectedEntry?.type === 'Photo' ? 'image-outline' :
+                                                    selectedEntry?.type === 'Video' ? 'videocam-outline' :
+                                                        selectedEntry?.type === 'Audio' ? 'mic-outline' : 'document-text-outline'
+                                            }
+                                            size={14}
+                                            color={selectedEntry ? getCategoryColors(selectedEntry.type).color : '#FA782F'}
+                                            style={{ marginRight: 4 }}
+                                        />
+                                        <Text style={[styles.detailBadgeText, { color: selectedEntry ? getCategoryColors(selectedEntry.type).color : '#FA782F' }]}>{selectedEntry?.type}</Text>
+                                    </View>
+                                    <Text style={styles.detailDateText}>{selectedEntry?.date}</Text>
+                                </View>
+
+                                {selectedEntry?.type === 'Photo' && selectedEntry.file_url && (
+                                    <View style={styles.modalMediaContainer}>
+                                        <Image source={{ uri: selectedEntry.file_url }} style={styles.detailMediaImage} />
+                                    </View>
+                                )}
+
+                                {selectedEntry?.type === 'Video' && selectedEntry.file_url && (
+                                    <View style={styles.modalMediaContainer}>
+                                        <View style={[styles.detailMediaImage, { backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }]}>
+                                            <Ionicons name="play-circle" size={48} color="#FFF" />
+                                            <Text style={{ color: '#FFF', marginTop: 8 }}>Video Entry</Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {selectedEntry?.type === 'Audio' && selectedEntry.file_url && (
+                                    <View style={styles.modalMediaContainer}>
+                                        <View style={[styles.detailMediaImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
+                                            <Ionicons name="musical-notes" size={48} color="#4CAF50" />
+                                            <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>Voice Recording</Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {selectedEntry?.content && (
+                                    <Text style={styles.detailContentText}>{selectedEntry.content}</Text>
+                                )}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+
+
             </View>
         );
     };
@@ -339,16 +433,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    addButton: {
+    backButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#4CAF50',
+        backgroundColor: '#000',
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 20,
         marginRight: 15,
     },
-    addButtonText: {
+    backButtonText: {
         color: '#FFF',
         fontWeight: 'bold',
         marginLeft: 4,
@@ -457,5 +551,74 @@ const styles = StyleSheet.create({
     dropdownOptionTextActive: {
         color: '#4CAF50',
         fontWeight: 'bold',
-    }
+    },
+    // Detail Modal Styles
+    detailModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    detailModalContent: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        maxHeight: '80%',
+        minHeight: '50%',
+    },
+    detailModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    detailModalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+        flex: 1,
+        marginRight: 10,
+    },
+    detailModalBody: {
+        flex: 1,
+    },
+    detailBadgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    detailBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginRight: 10,
+    },
+    detailBadgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    detailDateText: {
+        fontSize: 13,
+        color: '#999',
+    },
+    detailContentText: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#444',
+    },
+    modalMediaContainer: {
+        width: '100%',
+        height: 200,
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 16,
+        backgroundColor: '#F5F5F5',
+    },
+    detailMediaImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
 });

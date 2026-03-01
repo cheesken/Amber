@@ -6,6 +6,7 @@ import { TimerScreen } from './src/screens/Timer';
 import { SignUpScreen } from './src/screens/SignUpScreen';
 import { InitialSetupScreen } from './src/screens/InitialSetupScreen';
 import { isSignedUp, getStoredCode, signOut } from './src/lib/auth';
+import { api } from './src/lib/api';
 
 export default function App() {
   const [view, setView] = useState<'loading' | 'signup' | 'setup' | 'disguise' | 'vault'>('loading');
@@ -14,8 +15,12 @@ export default function App() {
   const [showOverlay, setShowOverlay] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      // Check current auth state
+    async function checkAuth() {
+      // Force clear auth state on app start for testing/dev purposes
+      // This ensures the user is asked to sign up or log in every single time
+      console.log('[App] Resetting session for fresh start...');
+      await signOut();
+
       console.log('[App] Checking initial auth state...');
 
       const signedUp = await isSignedUp();
@@ -27,13 +32,18 @@ export default function App() {
         setAuthMode('signup');
         setView('signup');
       }
-    };
+    }
     checkAuth();
   }, []);
 
   const handleSignUpComplete = async () => {
     const code = await getStoredCode();
     setSecretCode(code);
+    try {
+      await api.checkin.perform();
+    } catch (e) {
+      console.log('[App] Initial checkin failed (likely first time, config not created yet)', e);
+    }
     setView('setup'); // Route to initial setup after signup
   };
 
@@ -45,6 +55,11 @@ export default function App() {
   const handleLoginComplete = async () => {
     const code = await getStoredCode();
     setSecretCode(code);
+    try {
+      await api.checkin.perform();
+    } catch (e) {
+      console.log('[App] Login checkin failed', e);
+    }
     setView('disguise');
   };
 

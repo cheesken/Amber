@@ -44,7 +44,8 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                 title: item.content ? (item.content.length > 30 ? item.content.substring(0, 30) + '...' : item.content) : `Entry ${item.type}`,
                 type: item.type === 'note' ? 'Text' : (item.type.charAt(0).toUpperCase() + item.type.slice(1)),
                 date: new Date(item.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                content: item.content || `Entry of type ${item.type}`
+                content: item.content || `Entry of type ${item.type}`,
+                file_url: item.file_url
             }));
             setHistory(mapped);
         } catch (error) {
@@ -69,7 +70,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                 file_url: imageUri || videoUri || audioUri // Simplified for demo
             });
 
-            Alert.alert('Success', 'Entry saved to your secure vault.');
+            Alert.alert('Success', 'Entry submitted to your secure vault.');
             setTextEntry('');
             setImageUri(null);
             setVideoUri(null);
@@ -77,7 +78,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
             fetchHistory();
         } catch (error) {
             console.error('Failed to save entry:', error);
-            Alert.alert('Error', 'Failed to save entry to server.');
+            Alert.alert('Error', 'Failed to submit entry to server.');
         } finally {
             setSaving(false);
         }
@@ -378,7 +379,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                                 ) : (
                                     <>
                                         <Ionicons name="save-outline" size={16} color="#FFF" />
-                                        <Text style={styles.saveText}>Save Entry</Text>
+                                        <Text style={styles.saveText}>Submit Entry</Text>
                                     </>
                                 )}
                             </TouchableOpacity>
@@ -431,7 +432,34 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
                                 </View>
                                 <Text style={styles.detailDate}>{selectedEntry?.date}</Text>
                             </View>
-                            <Text style={styles.detailContentText}>{selectedEntry?.content}</Text>
+
+                            {selectedEntry?.type === 'Photo' && selectedEntry.file_url && (
+                                <View style={styles.modalMediaContainer}>
+                                    <Image source={{ uri: selectedEntry.file_url }} style={styles.detailImage} />
+                                </View>
+                            )}
+
+                            {selectedEntry?.type === 'Video' && selectedEntry.file_url && (
+                                <View style={styles.modalMediaContainer}>
+                                    <View style={[styles.detailImage, { backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Ionicons name="play-circle" size={48} color="#FFF" />
+                                        <Text style={{ color: '#FFF', marginTop: 8 }}>Video Entry</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {selectedEntry?.type === 'Audio' && selectedEntry.file_url && (
+                                <View style={styles.modalMediaContainer}>
+                                    <View style={[styles.detailImage, { backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Ionicons name="musical-notes" size={48} color="#4CAF50" />
+                                        <Text style={{ color: '#4CAF50', fontWeight: 'bold', marginTop: 8 }}>Voice Recording</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {selectedEntry?.content && (
+                                <Text style={styles.detailContentText}>{selectedEntry.content}</Text>
+                            )}
                         </ScrollView>
                     </View>
                 </View>
@@ -698,5 +726,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         lineHeight: 24,
         color: '#444',
-    }
+    },
+    modalMediaContainer: {
+        width: '100%',
+        height: 200,
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 16,
+        backgroundColor: '#F5F5F5',
+    },
+    detailImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
 });

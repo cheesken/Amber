@@ -83,10 +83,8 @@ export async function signUp(
       return { success: false, error: error.message };
     }
 
-    console.log('[Auth] SignUp successful, saving User ID:', data.id);
     await SecureStore.setItemAsync(USER_ID_KEY, data.id);
     await SecureStore.setItemAsync(SECRET_CODE_KEY, code.toString());
-    console.log('[Auth] User ID and Secret Code saved to SecureStore');
 
     return { success: true };
   } catch (e: any) {

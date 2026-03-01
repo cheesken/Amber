@@ -97,9 +97,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
             }
         }
 
-        // Here, we would make an API call to update the 'users' table in Supabase
-        setIsEditing(false);
-        Alert.alert('Profile Saved', 'Your physical description has been securely saved.');
+        setSaving(true);
+        try {
+            await api.profile.update(profile);
+            setIsEditing(false);
+            Alert.alert('Profile Saved', 'Your physical description has been securely saved.');
+        } catch (error) {
+            console.error('Failed to save profile:', error);
+            Alert.alert('Error', 'Failed to save profile. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -255,9 +263,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 </View>
 
                 {isEditing && (
-                    <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.8}>
-                        <Ionicons name="save-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.saveButtonText}>Save Profile Information</Text>
+                    <TouchableOpacity
+                        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                        onPress={handleSave}
+                        disabled={saving}
+                        activeOpacity={0.8}
+                    >
+                        {saving ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                            <>
+                                <Ionicons name="save-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                <Text style={styles.saveButtonText}>Save Profile Information</Text>
+                            </>
+                        )}
                     </TouchableOpacity>
                 )}
 
@@ -428,6 +447,11 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    saveButtonDisabled: {
+        opacity: 0.6,
+        shadowOpacity: 0.1,
+        elevation: 2,
     },
     logoutButton: {
         flexDirection: 'row',

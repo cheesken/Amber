@@ -8,11 +8,8 @@ const API_BASE = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://12
 
 // Helper to get the current authenticated user's ID
 const getUserId = async (): Promise<string> => {
-    console.log('[API] Attempting to get User ID...');
     const userId = await getStoredUserId();
-    console.log('[API] Retrieved User ID:', userId);
     if (!userId) {
-        console.error('[API] Auth Error: No User ID found in SecureStore');
         throw new Error('User is not authenticated');
     }
     return userId;
@@ -89,6 +86,21 @@ export const api = {
             return apiFetch(`/checkin/${userId}`, {
                 method: 'POST',
             });
+        },
+    },
+    agent: {
+        calls: {
+            list: async () => {
+                const userId = await getUserId();
+                return apiFetch(`/agent/calls/${userId}`);
+            },
+            create: async (data: any) => {
+                const userId = await getUserId();
+                return apiFetch(`/agent/calls/${userId}`, {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                });
+            },
         },
     },
     contacts: {

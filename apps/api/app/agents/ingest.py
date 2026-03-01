@@ -122,22 +122,25 @@ def _extract_metadata(file_bytes: bytes, file_name: str, content_type: str) -> d
 
 
 def _create_user_if_not_exists(user_id: str) -> None:
-    """Idempotently ensure a user exists in the database using upsert."""
+    """Ensure a user exists in the database. Only creates if missing to avoid mangling existing profiles."""
     sb = _get_supabase()
     try:
-        # Define user data according to schema requirements
+        # Check if user already exists
+        exist_check = sb.table("users").select("id").eq("id", user_id).execute()
+        if exist_check.data:
+            logger.debug(f"User {user_id} already exists, skipping provisioning.")
+            return
+
+        # Define minimal dummy data for auto-provisioning (e.g. from an agent flow)
         user_data = {
             "id": user_id,
-            "username": f"test-user-{user_id[:8]}",
-            "password_hash": "test-hash-12345",  # Placeholder required field
-            "timer_duration": 300  # Default 5 minute timer
+            "username": f"user-{user_id[:8]}",
+            "password_hash": "dummy-hash", 
+            "timer_duration": 300
         }
-        # Use upsert to prevent 409 Conflict logs if the user already exists
-        # on_conflict='id' ensures we target the primary key
-        result = sb.table("users").upsert(user_data, on_conflict="id").execute()
-        logger.debug(f"User provisioning check complete for: {user_id}")
+        sb.table("users").insert(user_data).execute()
+        logger.info(f"Provisioned new dummy user: {user_id}")
     except Exception as e:
-        # We log and swallow to ensure main flow continues even if provisioning logic hits an edge case
         logger.warning(f"Note: User provisioning check for {user_id} produced: {e}")
 
 
