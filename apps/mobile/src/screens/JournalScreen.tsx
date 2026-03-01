@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginTop: 20,
         marginBottom: 15,
     },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     tabsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginBottom: 20,
         width: '100%',
     },
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     },
     contentArea: {
         flex: 1,
-        marginHorizontal: 20,
+        marginHorizontal: 16,
         marginBottom: 20,
         backgroundColor: '#FFF',
         borderRadius: 16,

@@ -251,17 +251,16 @@ export const CheckInScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FAFAFA',
     },
     contentContainer: {
         padding: 16,
-        paddingBottom: 32,
     },
     mainCard: {
         backgroundColor: '#FFF9E6',
         borderRadius: 24,
-        padding: 20,
-        marginBottom: 24,
+        padding: 16,
+        marginBottom: 16,
     },
     cardHeader: {
         flexDirection: 'row',

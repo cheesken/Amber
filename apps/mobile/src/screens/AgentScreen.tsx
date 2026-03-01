@@ -354,13 +354,13 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#FAFAFA', // Slight off-white to match the reference
-        padding: 24, // Moved padding here from contentContainer
+        padding: 16, // Moved padding here from contentContainer
     },
     mainCard: {
         backgroundColor: '#FFF9E6',
         borderRadius: 24,
-        padding: 20,
-        marginBottom: 24,
+        padding: 16,
+        marginBottom: 16,
     },
     cardHeader: {
         flexDirection: 'row',
