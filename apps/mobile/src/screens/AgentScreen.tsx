@@ -59,6 +59,7 @@ export const AgentScreen: React.FC = () => {
 
     // Using state for history so new calls can be added dynamically
     const [history, setHistory] = useState<CallHistoryItem[]>(MOCK_HISTORY);
+    const [isCardExpanded, setIsCardExpanded] = useState(true);
 
     const handleCallAgent = () => {
         if (activeCallTargets.length > 0) return; // Prevent opening if already calling
@@ -109,12 +110,32 @@ export const AgentScreen: React.FC = () => {
     return (
         <View style={styles.container}>
 
-            {/* Header Text Section */}
-            <View style={styles.headerSection}>
-                <Text style={styles.title}>Agent Calling</Text>
-                <Text style={styles.subtitle}>
-                    If you want someone to know what you're going through, the AI Agent can help. It will summarize your recent journal entries and securely share them with the trusted contacts you select.
-                </Text>
+            {/* Header Card */}
+            <View style={styles.mainCard}>
+                <TouchableOpacity
+                    style={styles.cardHeader}
+                    onPress={() => setIsCardExpanded(!isCardExpanded)}
+                    activeOpacity={0.7}
+                >
+                    <View style={styles.iconContainer}>
+                        <Ionicons name="call-outline" size={24} color="#FA782F" />
+                    </View>
+                    <View style={styles.cardTitleContainer}>
+                        <View style={styles.titleRow}>
+                            <Text style={styles.cardTitle}>Agent Calling</Text>
+                            <Ionicons
+                                name={isCardExpanded ? "chevron-up" : "chevron-down"}
+                                size={20}
+                                color="#FA782F"
+                            />
+                        </View>
+                        {isCardExpanded && (
+                            <Text style={styles.cardDescription}>
+                                If you want someone to know what you're going through, the AI Agent can help. It will summarize your recent journal entries and securely share them with the trusted contacts you select.
+                            </Text>
+                        )}
+                    </View>
+                </TouchableOpacity>
             </View>
 
             {/* Main Call Button Section */}
@@ -335,24 +356,43 @@ const styles = StyleSheet.create({
         backgroundColor: '#FAFAFA', // Slight off-white to match the reference
         padding: 24, // Moved padding here from contentContainer
     },
-    headerSection: {
+    mainCard: {
+        backgroundColor: '#FFF9E6',
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 24,
+    },
+    cardHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 10,
-        marginBottom: 20,
-        width: '100%',
     },
-    title: {
-        fontSize: 24,
+    iconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#FFECC7',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+    },
+    cardTitleContainer: {
+        flex: 1,
+    },
+    cardTitle: {
+        fontSize: 18,
         fontWeight: 'bold',
-        color: '#222222',
-        marginBottom: 8,
+        color: '#5D4037',
     },
-    subtitle: {
-        fontSize: 14,
-        color: '#666666',
-        textAlign: 'center',
-        lineHeight: 20,
-        paddingHorizontal: 10,
+    cardDescription: {
+        fontSize: 13,
+        color: '#8D6E63',
+        lineHeight: 18,
+        marginTop: 6,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     callSection: {
         alignItems: 'center',
