@@ -6,8 +6,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from apps.api.app.agents.state import IngestState
-from apps.api.app.config import get_settings
+from app.agents.state import IngestState
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def _get_supabase():
     from supabase import create_client
 
     s = get_settings()
-    return create_client(s.supabase_url, s.supabase_service_role_key)
+    return create_client(s.supabase_url, s.supabase_secret_key)
 
 
 def ingest_node(state: IngestState) -> IngestState:
@@ -118,23 +118,49 @@ def _extract_metadata(file_bytes: bytes, file_name: str, content_type: str) -> d
     return meta
 
 
+def _create_user_if_not_exists(user_id: str) -> None:
+    """Create user if it doesn't exist."""
+    logger.info(f"Attempting to create user: {user_id}")
+    sb = _get_supabase()
+    try:
+        # Create user with required fields according to schema
+        user_data = {
+            "id": user_id,
+            "username": f"test-user-{user_id[:8]}",
+            "password_hash": "test-hash-12345",  # Required field
+            "timer_duration": 300  # Required field (5 minutes default)
+        }
+        result = sb.table("users").insert(user_data).execute()
+        logger.info(f"Successfully created user: {user_id}, result: {result.data}")
+    except Exception as e:
+        logger.error(f"Failed to create user {user_id}: {e}")
+        # Don't raise - let the original error propagate
+
+
 def _create_incident_row(
     user_id: str,
     content_type: str,
-    text_content: str | None,
-    file_url: str | None,
-    file_hash: str | None,
-    metadata: dict[str, Any],
+    text_content: str | None = None,
+    file_url: str | None = None,
+    file_hash: str | None = None,
+    metadata: Dict[str, Any] | None = None,
 ) -> str:
+    """Create the incident row in Supabase."""
     sb = _get_supabase()
+    
+    # First, ensure user exists
+    _create_user_if_not_exists(user_id)
+    
+    # Create row with correct schema fields
     row = {
         "user_id": user_id,
         "type": content_type,
         "file_url": file_url,
         "file_hash": file_hash,
-        "content": text_content,
-        "metadata": metadata,
-        "analysis": None,
+        "content": text_content,  # Schema uses 'content', not 'text_content'
+        "metadata": metadata or {},
+        # Note: uploaded_at has DEFAULT now(), timestamp doesn't exist
     }
+    
     result = sb.table("incidents").insert(row).execute()
     return result.data[0]["id"]

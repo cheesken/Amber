@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from apps.api.app.config import get_settings
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def _get_supabase():
     from supabase import create_client
 
     s = get_settings()
-    return create_client(s.supabase_url, s.supabase_service_role_key)
+    return create_client(s.supabase_url, s.supabase_secret_key)
 
 
 def _check_all_users() -> None:
