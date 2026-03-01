@@ -7,3 +7,7 @@ cryptography==43.0.1
 reportlab==4.2.2
 apscheduler==3.10.4
 pyjwt==2.9.0
+langgraph==0.2.60
+langchain-groq==0.2.1
+langchain-core==0.3.28
+httpx>=0.24,<0.28
