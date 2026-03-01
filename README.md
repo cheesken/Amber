@@ -2,7 +2,7 @@
   <img src="pics/logo.png" alt="AMBER Logo" width="200"/>
 </p>
 
-<h1 align="center">AMBER</h1>
+<h1 align="center">Amber</h1>
 
 <p align="center">
   A DV evidence collection app disguised as a meditation timer.<br/>
