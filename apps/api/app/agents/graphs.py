@@ -5,10 +5,10 @@ from typing import Any
 
 from langgraph.graph import END, StateGraph
 
-from apps.api.app.agents.analysis import analysis_node
-from apps.api.app.agents.ingest import ingest_node
-from apps.api.app.agents.legal import legal_analyze_node, legal_fetch_node, legal_pdf_node
-from apps.api.app.agents.state import IngestState, LegalState
+from app.agents.analysis import analysis_node
+from app.agents.ingest import ingest_node
+from app.agents.legal import legal_analyze_node, legal_fetch_node, legal_pdf_node
+from app.agents.state import IngestState, LegalState
 
 logger = logging.getLogger(__name__)
 

@@ -37,6 +37,7 @@ const INITIAL_CONTACTS: Contact[] = [
 
 export const CheckInScreen: React.FC = () => {
     const [isEnabled, setIsEnabled] = useState(true);
+    const [isCardExpanded, setIsCardExpanded] = useState(true);
     const [selectedFrequency, setSelectedFrequency] = useState('daily');
     const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
 
@@ -74,17 +75,30 @@ export const CheckInScreen: React.FC = () => {
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {/* Safety Check-in Card */}
                 <View style={styles.mainCard}>
-                    <View style={styles.cardHeader}>
+                    <TouchableOpacity
+                        style={styles.cardHeader}
+                        onPress={() => setIsCardExpanded(!isCardExpanded)}
+                        activeOpacity={0.7}
+                    >
                         <View style={styles.iconContainer}>
                             <Ionicons name="time-outline" size={24} color="#FA782F" />
                         </View>
                         <View style={styles.cardTitleContainer}>
-                            <Text style={styles.cardTitle}>Safety Check-in</Text>
-                            <Text style={styles.cardDescription}>
-                                If a check-in is missed, we’ll automatically notify your trusted contacts to reach out and ensure you’re safe.
-                            </Text>
+                            <View style={styles.titleRow}>
+                                <Text style={styles.cardTitle}>Safety Check-in</Text>
+                                <Ionicons
+                                    name={isCardExpanded ? "chevron-up" : "chevron-down"}
+                                    size={20}
+                                    color="#FA782F"
+                                />
+                            </View>
+                            {isCardExpanded && (
+                                <Text style={styles.cardDescription}>
+                                    If a check-in is missed, we’ll automatically notify your trusted contacts to reach out and ensure you’re safe.
+                                </Text>
+                            )}
                         </View>
-                    </View>
+                    </TouchableOpacity>
 
                     <View style={styles.toggleRow}>
                         <Text style={styles.toggleText}>Enable Check-ins</Text>
@@ -237,21 +251,20 @@ export const CheckInScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FAFAFA',
     },
     contentContainer: {
         padding: 16,
-        paddingBottom: 32,
     },
     mainCard: {
         backgroundColor: '#FFF9E6',
         borderRadius: 24,
-        padding: 20,
-        marginBottom: 24,
+        padding: 16,
+        marginBottom: 16,
     },
     cardHeader: {
         flexDirection: 'row',
-        marginBottom: 20,
+        alignItems: 'center',
     },
     iconContainer: {
         width: 44,
@@ -269,12 +282,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#5D4037',
-        marginBottom: 4,
     },
     cardDescription: {
         fontSize: 13,
         color: '#8D6E63',
         lineHeight: 18,
+        marginTop: 4,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     toggleRow: {
         flexDirection: 'row',
@@ -284,6 +302,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 12,
+        marginTop: 16,
     },
     toggleText: {
         fontSize: 16,

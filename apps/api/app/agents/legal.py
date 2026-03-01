@@ -10,8 +10,8 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
-from apps.api.app.agents.state import LegalState
-from apps.api.app.config import get_settings
+from app.agents.state import LegalState
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ DISCLAIMER = (
 def legal_fetch_node(state: LegalState) -> LegalState:
     """Fetch all incidents for the user from the database."""
     try:
-        from apps.api.app.agents.ingest import _get_supabase
+        from app.agents.ingest import _get_supabase
 
         sb = _get_supabase()
         user_id = state["user_id"]
@@ -296,7 +296,7 @@ def _build_pdf(
 
 
 def _upload_pdf(user_id: str, pdf_bytes: bytes) -> str:
-    from apps.api.app.agents.ingest import _get_supabase
+    from app.agents.ingest import _get_supabase
 
     sb = _get_supabase()
     path = f"{user_id}/reports/{uuid.uuid4().hex}.pdf"
@@ -310,14 +310,20 @@ def _create_report_row(
     pdf_url: str,
     gap_analysis: dict[str, Any],
 ) -> str:
-    from apps.api.app.agents.ingest import _get_supabase
+    from app.agents.ingest import _get_supabase, _create_user_if_not_exists
 
     sb = _get_supabase()
+    
+    # First, ensure user exists
+    _create_user_if_not_exists(user_id)
+    
     row = {
         "user_id": user_id,
-        "incident_ids": incident_ids,
+        "incident_ids": incident_ids,  # Schema expects UUID array
         "pdf_url": pdf_url,
         "gap_analysis": gap_analysis,
+        # Note: generated_at has DEFAULT now()
     }
+    
     result = sb.table("reports").insert(row).execute()
     return result.data[0]["id"]

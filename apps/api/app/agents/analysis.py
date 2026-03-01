@@ -8,8 +8,8 @@ import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 
-from apps.api.app.agents.state import IngestState
-from apps.api.app.config import get_settings
+from app.agents.state import IngestState
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def _call_reka(file_url: str, content_type: str, api_key: str) -> str | None:
 
 def _get_prior_summaries(user_id: str) -> list[str]:
     """Fetch previous incident summaries for pattern detection."""
-    from apps.api.app.agents.ingest import _get_supabase
+    from app.agents.ingest import _get_supabase
 
     sb = _get_supabase()
     result = (
@@ -176,7 +176,7 @@ def _synthesize(
 
 
 def _update_incident_analysis(incident_id: str, analysis: dict[str, Any]) -> None:
-    from apps.api.app.agents.ingest import _get_supabase
+    from app.agents.ingest import _get_supabase
 
     sb = _get_supabase()
     sb.table("incidents").update({"analysis": analysis}).eq("id", incident_id).execute()

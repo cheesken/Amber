@@ -253,7 +253,7 @@ export default function JournalScreen({ onViewEvidence }: JournalScreenProps) {
     );
 
     return (
-        <View style={[styles.safeArea, { paddingTop: Platform.OS === 'android' ? 25 : 45 }]}>
+        <View style={styles.safeArea}>
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginTop: 20,
         marginBottom: 15,
     },
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     tabsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginBottom: 20,
         width: '100%',
     },
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     },
     contentArea: {
         minHeight: 250, // Let the entry area take up the top half
-        marginHorizontal: 20,
+        marginHorizontal: 16,
         marginBottom: 20,
         backgroundColor: '#FFF',
         borderRadius: 16,
@@ -517,8 +517,8 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     historySection: {
-        marginHorizontal: 20,
-        marginBottom: 20,
+        marginHorizontal: 16,
+        marginBottom: 16,
     },
     historySectionTitle: {
         fontSize: 18,
