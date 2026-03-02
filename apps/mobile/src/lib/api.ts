@@ -4,7 +4,7 @@ import { getStoredUserId } from './auth';
 // For iOS simulator, localhost/127.0.0.1 works. 
 // For Android emulator, use 10.0.2.2.
 // For physical devices, use the local IP of your machine.
-const API_BASE = 'https://geostatic-sang-hoverfly.ngrok-free.dev';
+const API_BASE = 'http://127.0.0.1:8000';
 
 // Helper to get the current authenticated user's ID
 const getUserId = async (): Promise<string> => {
@@ -21,7 +21,6 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
     const headers: Record<string, string> = {
         ...options.headers as Record<string, string>,
-        'ngrok-skip-browser-warning': 'true', // Bypass ngrok interstitial page
     };
 
     if (!isFormData) {
