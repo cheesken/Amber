@@ -82,6 +82,20 @@
 
 ---
 
+## Voice & Messaging
+
+Amber supports **calling**, **texting**, and **voice agents that speak directly to real people** — trusted contacts, family, or lawyers.
+
+| Channel | Tech | Use Case |
+|---------|------|----------|
+| **Voice calls** | Twilio + ElevenLabs | AI agent places outbound calls and speaks to contacts in natural language |
+| **SMS** | Twilio | Tiered escalation (soft check-in → urgent alert → missing-persons payload) |
+| **Voice agent ↔ human** | ElevenLabs Voice Agent | The agent holds real phone conversations — it talks to a live person, not just plays a recording |
+
+**Conversation history** is persisted for every call: speaker-labeled transcripts (AI Agent vs. contact) are stored in Supabase and surfaced in the app’s Call History. Users can review past agent conversations with each contact.
+
+---
+
 ## Stack
 
 - **Mobile**: React Native (Expo SDK 54, TypeScript)
@@ -89,6 +103,7 @@
 - **Database**: Supabase (PostgreSQL + Storage)
 - **Storage Bucket**: Ensure a public or RLS-protected bucket named `amber-vault` exists in Supabase.
 - **Orchestration**: LangGraph + Groq (Llama)
+- **Voice / Telephony**: ElevenLabs (TTS, Voice Agent), Twilio (Voice, SMS)
 
 ## Prerequisites
 
